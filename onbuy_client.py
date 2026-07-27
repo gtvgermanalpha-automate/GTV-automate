@@ -121,7 +121,7 @@ class OnBuyClient:
             resp = requests.request(method, url, headers=self._headers(), **kwargs)
         return resp
 
-    def create_product(self, *, sku, ean, title, description, brand, category_id, price, main_image, additional_images):
+    def create_product(self, *, sku, ean, title, description, brand, category_id, price, main_image, additional_images, stock=0):
         payload = {
             "site_id": self.site_id,
             "seller_id": self.seller_id,
@@ -142,6 +142,12 @@ class OnBuyClient:
             "default_image": main_image,
             "additional_images": additional_images[:10],
             "force_update": True,
+            # Product creation alone leaves an approved catalogue entry with
+            # NO seller offer attached - OnBuy support confirmed (2026-07-27)
+            # that's exactly what stranded the July submissions: products
+            # existed, listings were never created. The nested listing block
+            # attaches our inventory in the same submission.
+            "listings": {"new": {"sku": sku, "price": str(price), "stock": int(stock or 0)}},
         }
 
         def _do_create():
@@ -172,6 +178,22 @@ class OnBuyClient:
             return body
 
         return with_retry(_do_update, what=f"onbuy update_listing({sku})", max_attempts=3)
+
+    def create_listings_batch(self, listings):
+        """POST /v2/listings - attach seller offers to EXISTING catalogue
+        products by OPC ({"opc","sku","condition","price","stock"} each).
+        Returns the raw body; per-item errors are the caller's to inspect
+        (a batch may be partially successful, so no blanket raise here)."""
+        payload = {"site_id": self.site_id, "seller_id": self.seller_id, "listings": listings}
+
+        def _do_batch():
+            logger.info("OnBuy create_listings_batch request payload: %s", payload)
+            resp = self._send("POST", f"{BASE_URL}/listings", what="onbuy create_listings_batch", json=payload)
+            logger.info("OnBuy create_listings_batch raw response [%s]: %s", resp.status_code, resp.text[:4000])
+            raise_for_status(resp, what="onbuy create_listings_batch")
+            return resp.json()
+
+        return with_retry(_do_batch, what="onbuy create_listings_batch", max_attempts=3)
 
     def list_listings(self):
         """GET /v2/listings - the only direct way to see what's actually in
@@ -251,5 +273,6 @@ class OnBuyClient:
                 price=price,
                 main_image=kwargs.get("main_image", ""),
                 additional_images=kwargs.get("additional_images", []),
+                stock=stock,
             )
             return "created", result
