@@ -11,12 +11,15 @@ Safety model:
 Existing listings are never touched: the live listing set is fetched first
 and anything already listed is skipped, so re-runs are safe.
 """
+import json
 import logging
 import os
 import sys
 import time
 
+import gspread
 import requests
+from oauth2client.service_account import ServiceAccountCredentials
 
 from onbuy_client import BASE_URL, OnBuyClient
 
@@ -31,6 +34,18 @@ DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "fals
 LIMIT_SKUS = {s.strip() for s in (os.getenv("LIMIT_SKUS") or "").split(",") if s.strip()}
 MAX_LISTINGS = int(os.getenv("MAX_LISTINGS") or "1000")
 CHUNK = int(os.getenv("CHUNK") or "50")
+
+
+def fetch_sheet_rows():
+    """The Sheet is the FULLER record: the Supabase project created in the
+    July migration only holds the rows processed since (378 at last check,
+    vs ~1,900 sheet rows), so OPCs recorded before the migration exist only
+    here. Returns the same dict shape the Supabase rows use."""
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        json.loads(os.environ["GOOGLE_CREDENTIALS"]), scope)
+    sheet = gspread.authorize(creds).open("OnBuy_Feed_Master").sheet1
+    return sheet.get_all_records()
 
 
 def fetch_all_supabase_rows():
@@ -77,8 +92,18 @@ def main():
         sys.exit(1)
 
     onbuy = OnBuyClient()
-    rows = fetch_all_supabase_rows()
-    logger.info("Supabase rows: %d", len(rows))
+    supabase_rows = fetch_all_supabase_rows()
+    sheet_rows = fetch_sheet_rows() if os.getenv("GOOGLE_CREDENTIALS") else []
+    logger.info("Supabase rows: %d, Sheet rows: %d", len(supabase_rows), len(sheet_rows))
+    # Union by SKU - Supabase wins where both exist (same values in practice;
+    # both stale to the same pause date).
+    by_sku = {}
+    for r in sheet_rows + supabase_rows:
+        sku_key = str(r.get("SKU") or "").strip()
+        if sku_key:
+            by_sku[sku_key] = r
+    rows = list(by_sku.values())
+    logger.info("Union catalogue rows: %d", len(rows))
 
     existing = fetch_existing_listing_skus(onbuy)
     logger.info("SKUs already listed on OnBuy: %d", len(existing))
