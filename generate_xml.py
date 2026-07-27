@@ -128,6 +128,14 @@ def is_valid_gtin(code):
     that were numeric and 12 digits long but not real barcodes."""
     if not code.isdigit() or len(code) not in (8, 12, 13, 14):
         return False
+    # GS1 reserves the "5" number system of 12-digit UPCs for discount
+    # coupons - such codes pass the check digit but can never be product
+    # codes, and OnBuy's GS1 registry check rejects them ("not a valid
+    # product code": 23 YRA + 74 Arden feed rows, 2026-07-28). A 13-digit
+    # code starting "05" is the same coupon number zero-padded; 13-digit
+    # codes starting "50" (GS1 UK) remain perfectly valid.
+    if (len(code) == 12 and code[0] == "5") or (len(code) == 13 and code.startswith("05")):
+        return False
     body, check_digit = code[:-1], code[-1]
     total = sum(int(d) * (3 if i % 2 == 0 else 1) for i, d in enumerate(reversed(body)))
     return str((10 - total % 10) % 10) == check_digit
