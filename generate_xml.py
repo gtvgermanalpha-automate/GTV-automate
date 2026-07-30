@@ -1056,6 +1056,9 @@ def main():
             row_updates.append({"range": f"{col_letter(col_map['Category'])}{i}", "values": [[category]]})
         if "Price Check Flag" in col_map:
             row_updates.append({"range": f"{col_letter(col_map['Price Check Flag'])}{i}", "values": [[price_check_flag]]})
+        if "Condition" in col_map:
+            row_updates.append({"range": f"{col_letter(col_map['Condition'])}{i}",
+                                "values": [[ebay_data.get("condition") or "New"]]})
         if "EAN" in col_map:
             row_updates.append({"range": f"{col_letter(col_map['EAN'])}{i}", "values": [[ean]]})
         # OnBuy-provided tracking fields, written to the Sheet only if those
