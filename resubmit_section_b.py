@@ -48,7 +48,10 @@ def main():
         sku = str(row.get("SKU") or "").strip()
         opc = str(row.get("OPC") or "").strip().upper()
         status = str(row.get("Sync Status") or "").strip()
-        if sku and opc == "PENDING" and status.startswith(("Pending Approval", "Failed")):
+        # "Awaiting OnBuy go-live" included: the restored runs re-tried these
+        # rows, got "SKU does not exist", and the anti-duplicate deferral
+        # relabeled them - still the same never-received products.
+        if sku and opc == "PENDING" and status.startswith(("Pending Approval", "Failed", "Awaiting OnBuy go-live")):
             stuck.append((idx, sku, status[:60]))
 
     logger.info("Section B candidates (OPC=PENDING, unresolved status): %d", len(stuck))
