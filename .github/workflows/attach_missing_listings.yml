@@ -12,6 +12,9 @@ on:
       max_listings:
         description: "Hard cap on listings attached this run"
         default: "1000"
+      skip_probe:
+        description: "Skip the listings scan (only with limit_skus)"
+        default: "no"
 
 # Same group as every OnBuy-touching workflow: a new token supersedes the one
 # a running sync holds (mass 401s, 2026-07-06) - queue, never overlap.
@@ -51,4 +54,5 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
           LIMIT_SKUS: ${{ inputs.limit_skus }}
           MAX_LISTINGS: ${{ inputs.max_listings }}
+          SKIP_PROBE: ${{ inputs.skip_probe == 'yes' && '1' || '' }}
         run: python attach_missing_listings.py

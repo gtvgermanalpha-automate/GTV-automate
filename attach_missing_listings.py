@@ -31,6 +31,11 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or ""
 TABLE = os.getenv("SUPABASE_TABLE") or "OnBuy_Feed_Master"
 
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
+# With LIMIT_SKUS given, SKIP_PROBE=1 trusts the caller and skips the ~30
+# listings-page reads (OnBuy answered them with read-timeouts on
+# 2026-07-30) - attaching an already-listed SKU just returns a harmless
+# per-item error, so the safety loss is nil for a hand-picked list.
+SKIP_PROBE = (os.getenv("SKIP_PROBE") or "").strip().lower() in ("1", "yes", "true")
 LIMIT_SKUS = {s.strip() for s in (os.getenv("LIMIT_SKUS") or "").split(",") if s.strip()}
 MAX_LISTINGS = int(os.getenv("MAX_LISTINGS") or "1000")
 CHUNK = int(os.getenv("CHUNK") or "50")
@@ -69,9 +74,13 @@ def fetch_existing_listing_skus(onbuy):
     skipped, which is what makes re-running this script safe."""
     skus, offset, limit = set(), 0, 100
     while True:
-        resp = onbuy._send("GET", f"{BASE_URL}/listings", what="listings page",
-                           params={"site_id": onbuy.site_id, "limit": limit, "offset": offset}, timeout=30)
-        resp.raise_for_status()
+        def _page(off=offset):
+            r = onbuy._send("GET", f"{BASE_URL}/listings", what="listings page",
+                            params={"site_id": onbuy.site_id, "limit": limit, "offset": off}, timeout=60)
+            r.raise_for_status()
+            return r
+        from retry_utils import with_retry
+        resp = with_retry(_page, what=f"listings page offset {offset}", max_attempts=3)
         body = resp.json()
         items = body.get("results") if isinstance(body, dict) else body
         if not isinstance(items, list):
@@ -105,8 +114,12 @@ def main():
     rows = list(by_sku.values())
     logger.info("Union catalogue rows: %d", len(rows))
 
-    existing = fetch_existing_listing_skus(onbuy)
-    logger.info("SKUs already listed on OnBuy: %d", len(existing))
+    if SKIP_PROBE and LIMIT_SKUS:
+        existing = set()
+        logger.info("SKIP_PROBE: trusting the %d-SKU allowlist, no listings scan", len(LIMIT_SKUS))
+    else:
+        existing = fetch_existing_listing_skus(onbuy)
+        logger.info("SKUs already listed on OnBuy: %d", len(existing))
 
     candidates, skipped_priceless = [], 0
     for r in rows:
