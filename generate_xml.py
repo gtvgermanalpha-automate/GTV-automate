@@ -128,6 +128,28 @@ def parse_time(value):
         return datetime(2000, 1, 1)
 
 
+def carry_forward(fresh, stored, default=None):
+    """First non-None value wins - this run's value, else what Supabase
+    already had, else `default`.
+
+    `or` cannot be used for the OnBuy-tracking columns. PostgREST returns a
+    boolean column as Python True/False, so a stored False - a perfectly
+    valid value - is falsy, and `or` falls straight past it to the default.
+    That is how an empty string reached a boolean column and 400'd the
+    entire batch ("22P02: invalid input syntax for type boolean"), losing
+    every row's Supabase mirror on ~25% of runs while the OnBuy push itself
+    succeeded. An empty string was wrong for the timestamp column too; None
+    is a proper SQL NULL, which is the truthful value for a row that has
+    never been pushed (and keeps it sorting front-of-queue, since
+    parse_time falls back to the year 2000).
+    """
+    if fresh is not None:
+        return fresh
+    if stored is not None:
+        return stored
+    return default
+
+
 def is_valid_gtin(code):
     """True if `code` is a real barcode by the GS1 check-digit standard used
     for UPC-A/EAN-8/EAN-13/GTIN-14 (all the same algorithm, just different
@@ -1242,10 +1264,15 @@ def main():
             # these have to live on the same row as the fields above rather
             # than a separate partial-column upsert.
             "Sync Status": sync_status or existing.get("Sync Status") or "",
-            "OnBuy Product Created": onbuy_product_created or existing.get("OnBuy Product Created") or "",
-            "OnBuy Listing Active": onbuy_listing_active or existing.get("OnBuy Listing Active") or "",
+            # These three are boolean/boolean/timestamp in Supabase, so ""
+            # is not a legal value for any of them - see carry_forward().
+            # "FALSE" is the truthful default for a row that has never been
+            # pushed (not created, not live); NULL is the truthful default
+            # for a sync that has never happened.
+            "OnBuy Product Created": carry_forward(onbuy_product_created, existing.get("OnBuy Product Created"), "FALSE"),
+            "OnBuy Listing Active": carry_forward(onbuy_listing_active, existing.get("OnBuy Listing Active"), "FALSE"),
             "OnBuy Product ID": onbuy_product_id or existing.get("OnBuy Product ID") or "",
-            "Last OnBuy Sync": last_onbuy_sync or existing.get("Last OnBuy Sync") or "",
+            "Last OnBuy Sync": carry_forward(last_onbuy_sync, existing.get("Last OnBuy Sync")),
         }
         supabase_rows.append(supabase_row)
 
