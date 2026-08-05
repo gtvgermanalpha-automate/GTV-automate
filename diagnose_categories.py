@@ -140,6 +140,29 @@ def diagnose_title_stage(title, current_category, description):
     if not best_has_title_hit:
         reason.append("no TITLE word among the hits (description-only)")
     print(f"  -> Title stage REFUSED: {'; '.join(reason)}")
+
+    # Leaf-named-in-title fallback - mirrors generate_xml.py (2026-08-05).
+    covered = []
+    for category_path in onbuy_categories:
+        required = category_guard[category_path]
+        if required and not (all_words & required):
+            continue
+        leaf = category_leaf_tokens[category_path]
+        if not leaf or not leaf <= title_words:
+            continue
+        if len(tokenize(category_path.split(">")[-1])) != len(leaf):
+            continue
+        covered.append((len(leaf), -len(category_path), category_path))
+    if covered:
+        covered.sort(reverse=True)
+        for c in covered[:5]:
+            print(f"    leaf-in-title candidate (coverage={c[0]}): {c[2]}")
+        if len(covered) == 1 or covered[0][0] > covered[1][0]:
+            print(f"  -> Leaf-in-title WINNER: {covered[0][2]}")
+            return covered[0][2]
+        print("  -> Leaf-in-title: TIE at top coverage - refused")
+    else:
+        print("  -> Leaf-in-title: no leaf fully named in the title")
     return None
 
 

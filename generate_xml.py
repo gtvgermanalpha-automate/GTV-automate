@@ -733,6 +733,38 @@ def main():
         if best_match and best_score >= 9 and best_has_title_hit:
             return best_match
 
+        # ---- Leaf-named-in-title fallback (2026-08-05) ----
+        # Only reached when the scorer above REFUSED, so behaviour changes
+        # solely for rows that were failing anyway. Diagnosed batch: listings
+        # with no eBay Type whose descriptions drowned the scorer in generic
+        # boilerplate - "Model Train Replacement Parts" (hits: part,
+        # replacement, model, accessory) outscored every real audio leaf for
+        # a pair of earbuds, and that junk winner had no title hit, so the
+        # refusal fired even though the title said "Tablet"/"Speaker"
+        # outright. This stage accepts a leaf ONLY when the title contains
+        # the leaf's entire visible name - the same covers_whole_leaf rule
+        # the Type stage uses ("Light" must not take "DJ Lights": the
+        # 2-letter DJ vanishes in tokenization, so token-subset alone is not
+        # enough). Most-covered-words wins ("Tablet Cases" beats "Tablets"
+        # for a case listing); any tie at the top refuses, same as the Type
+        # stage. Guarded subtrees keep their guard.
+        covered = []
+        for category_path in onbuy_categories:
+            required = category_guard[category_path]
+            if required and not (all_words & required):
+                continue
+            leaf = category_leaf_tokens[category_path]
+            if not leaf or not leaf <= title_words:
+                continue
+            if len(tokenize(category_path.split(">")[-1])) != len(leaf):
+                continue
+            covered.append((len(leaf), -len(category_path), category_path))
+        if covered:
+            covered.sort(reverse=True)
+            if len(covered) == 1 or covered[0][0] > covered[1][0]:
+                logger.info("Category matched via leaf-in-title -> %s", covered[0][2])
+                return covered[0][2]
+
         return current_category
 
     # ================= ONBUY CLIENT =================
