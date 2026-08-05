@@ -69,7 +69,27 @@ CURATED = {
     "948409168221": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
     "948602285534": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
     "949491663588": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
+    # 2026-08-05 medical dressings/swabs batch (Opsite, Mepore, Kliniderm,
+    # 365, 1920): no eBay Type, and no title names a category leaf - the
+    # closest leaf for wound dressings AND wound swabs alike:
+    "913230732811": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913262139541": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913279345102": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913677614688": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913823633303": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913876732701": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913925651892": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
+    "913619975150": "Health & Beauty > Medication & Remedies > First Aid Supplies > First Aid Dressings",
 }
+
+# SKUs whose curated value must overwrite whatever Category is currently in
+# the row, regardless of Sync Status. ONLY for repairing a wrong category
+# that AUTOMATION itself wrote - never list a SKU here to override a
+# human's choice. 913619975150: the first (token-subset) version of the
+# leaf-in-title fallback filed an Opsite Post-Op wound dressing under
+# Garden Decor > Post Boxes on 2026-08-05 ("post" from Post-Op + "box"
+# from Box of 20); the matcher is fixed, this repairs the row it poisoned.
+FORCE_RECATEGORIZE = {"913619975150"}
 
 
 def main():
@@ -91,9 +111,13 @@ def main():
     updates, applied = [], []
     for idx, row in enumerate(data, start=2):
         sku = str(row.get("SKU") or "").strip()
-        if sku in CURATED and "no matching OnBuy category" in str(row.get("Sync Status") or ""):
+        if sku not in CURATED:
+            continue
+        refused = "no matching OnBuy category" in str(row.get("Sync Status") or "")
+        force = sku in FORCE_RECATEGORIZE and str(row.get("Category") or "").strip() != CURATED[sku]
+        if refused or force:
             path = CURATED[sku]
-            applied.append((idx, sku, path))
+            applied.append((idx, sku, path + (" [FORCED]" if force and not refused else "")))
             updates.append({"range": f"{col_letter(col_map['Category'])}{idx}", "values": [[path]]})
             updates.append({"range": f"{col_letter(col_map['Sync Status'])}{idx}", "values": [[""]]})
     for idx, sku, path in applied:

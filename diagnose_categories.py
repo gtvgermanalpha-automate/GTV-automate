@@ -13,10 +13,12 @@ Usage: DIAG_SKUS=sku1,sku2 python diagnose_categories.py
 """
 import csv
 import os
+import re
 
 import supabase_db
 from generate_xml import (
     _GUARDED_SUBTREES,
+    _stem,
     category_match_tokens,
     empty_ebay_response,
     get_ebay_data,
@@ -39,10 +41,13 @@ with open("onbuy_categories_only.csv", newline="", encoding="utf-8") as csvfile:
 
 category_tokens = {}
 category_leaf_tokens = {}
+category_leaf_phrase = {}
 category_guard = {}
 for _path in onbuy_categories:
     category_tokens[_path] = category_match_tokens(_path)
     category_leaf_tokens[_path] = category_match_tokens(_path.split(">")[-1])
+    category_leaf_phrase[_path] = tuple(
+        _stem(w) for w in re.findall(r"\w+", _path.split(">")[-1].lower()))
     _low = _path.strip().lower()
     category_guard[_path] = next(
         (req for prefix, req in _GUARDED_SUBTREES if _low.startswith(prefix)), None)
@@ -141,18 +146,21 @@ def diagnose_title_stage(title, current_category, description):
         reason.append("no TITLE word among the hits (description-only)")
     print(f"  -> Title stage REFUSED: {'; '.join(reason)}")
 
-    # Leaf-named-in-title fallback - mirrors generate_xml.py (2026-08-05).
+    # Leaf-named-in-title fallback - mirrors generate_xml.py (2026-08-05,
+    # phrase-containment version after the Post Boxes incident).
+    title_seq = [_stem(w) for w in re.findall(r"\w+", str(title).lower())]
     covered = []
     for category_path in onbuy_categories:
         required = category_guard[category_path]
         if required and not (all_words & required):
             continue
-        leaf = category_leaf_tokens[category_path]
-        if not leaf or not leaf <= title_words:
+        phrase = category_leaf_phrase[category_path]
+        n = len(phrase)
+        if not n or n > len(title_seq):
             continue
-        if len(tokenize(category_path.split(">")[-1])) != len(leaf):
-            continue
-        covered.append((len(leaf), -len(category_path), category_path))
+        if any(tuple(title_seq[i:i + n]) == phrase
+               for i in range(len(title_seq) - n + 1)):
+            covered.append((n, -len(category_path), category_path))
     if covered:
         covered.sort(reverse=True)
         for c in covered[:5]:
