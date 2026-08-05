@@ -62,6 +62,13 @@ CURATED = {
     "946215035461": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
     # eufy Entry Sensor E20 (door/window security sensor - closest leaf):
     "942947672073": "Tools & DIY > Home Safety & Security > Alarms & Detectors > Motion Sensors",
+    # 2026-08-05 later batch - beyond any safe word rule: the LG title has a
+    # typo ("Monito"), "Computer Monitors" is a two-word leaf a title never
+    # fully names ("monitor" alone must not auto-match - Baby Monitors), and
+    # "TVs" tokenizes to a word no title contains ("tv" is 2 letters, dropped):
+    "948409168221": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
+    "948602285534": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
+    "949491663588": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
 }
 
 
