@@ -33,6 +33,35 @@ CURATED = {
     "662419262662": "Electronics & Technology > Mobile & Smart Tech > Mobile Phones & Accessories > Mobile Phones",
     "669342643490": "Electronics & Technology > Mobile & Smart Tech > Mobile Phones & Accessories > Mobile Phones",
     "671076171408": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
+    # 2026-08-05 batch - diagnosed with diagnose_categories.py: all of these
+    # have NO eBay Type item-specific (Anker/TCL/Unihertz/iiyama listings
+    # don't set one), so the authoritative stage never ran, and the title
+    # scorer drowned in description boilerplate ("part", "replacement",
+    # "accessory"...). Titles verified by eye against the category file.
+    # Android tablets ("12S PRO Wifi Tablet Android 15"):
+    "932920150520": "Electronics & Technology > Computing & Gaming > iPads, Tablets & eBook Readers > Tablets",
+    "933317496320": "Electronics & Technology > Computing & Gaming > iPads, Tablets & eBook Readers > Tablets",
+    "934451332352": "Electronics & Technology > Computing & Gaming > iPads, Tablets & eBook Readers > Tablets",
+    # Phones (TCL Plex; Unihertz Jelly Star):
+    "934731919556": "Electronics & Technology > Mobile & Smart Tech > Mobile Phones & Accessories > Mobile Phones",
+    "932310817255": "Electronics & Technology > Mobile & Smart Tech > Mobile Phones & Accessories > Mobile Phones",
+    # soundcore earbuds (Liberty Buds x2, P31i, P30i, Liberty 4 Pro) - the
+    # category file has no separate earbuds leaf; Headphones is the device
+    # leaf for the whole subtree:
+    "940665548243": "Electronics & Technology > TV & Audio > Headphones & Accessories > Headphones",
+    "941782726040": "Electronics & Technology > TV & Audio > Headphones & Accessories > Headphones",
+    "941726818060": "Electronics & Technology > TV & Audio > Headphones & Accessories > Headphones",
+    "943585322337": "Electronics & Technology > TV & Audio > Headphones & Accessories > Headphones",
+    "942259390658": "Electronics & Technology > TV & Audio > Headphones & Accessories > Headphones",
+    # soundcore Bluetooth speakers (Boom Go 3i x3, Boom 2 Plus):
+    "940730493072": "Electronics & Technology > TV & Audio > Speakers & Sound Systems > Speakers",
+    "940732984264": "Electronics & Technology > TV & Audio > Speakers & Sound Systems > Speakers",
+    "940769330201": "Electronics & Technology > TV & Audio > Speakers & Sound Systems > Speakers",
+    "943353271096": "Electronics & Technology > TV & Audio > Speakers & Sound Systems > Speakers",
+    # iiyama GB2771QSU 27" gaming monitor:
+    "946215035461": "Electronics & Technology > Computing & Gaming > Computer Monitors & Monitor Accessories > Computer Monitors",
+    # eufy Entry Sensor E20 (door/window security sensor - closest leaf):
+    "942947672073": "Tools & DIY > Home Safety & Security > Alarms & Detectors > Motion Sensors",
 }
 
 
