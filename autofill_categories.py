@@ -18,6 +18,11 @@ SHEET_NAME = "OnBuy_Feed_Master"
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 
 CURATED = {
+    # 2026-08-06 batch (run 31078055133): Android TV boxes and a comic
+    # compendium - no eBay Type, no leaf named in the titles:
+    "927574510066": "Electronics & Technology > TV & Audio > Streaming & Catchup > Media Streaming Devices",
+    "928818531533": "Electronics & Technology > TV & Audio > Streaming & Catchup > Media Streaming Devices",
+    "928296644206": "Books, Movies & Music > Fiction Books > Comics & Graphic Novels > Comic Books",
     "389831061399": "Electronics & Technology > TV & Audio > TVs & Accessories > TV Aerials",
     "428327259640": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
     "429548944339": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
