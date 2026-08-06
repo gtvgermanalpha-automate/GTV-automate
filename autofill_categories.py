@@ -119,8 +119,14 @@ def main():
         if sku not in CURATED:
             continue
         refused = "no matching OnBuy category" in str(row.get("Sync Status") or "")
+        # A mapped SKU whose Category cell is empty is fillable regardless
+        # of what Sync Status says - a later run may have overwritten the
+        # refusal text, and writing into a blank cell can't clobber a
+        # human's choice (2026-08-06: 26 blank-category YRA rows matched
+        # the map but not the status gate, so nothing applied).
+        blank = not str(row.get("Category") or "").strip()
         force = sku in FORCE_RECATEGORIZE and str(row.get("Category") or "").strip() != CURATED[sku]
-        if refused or force:
+        if refused or blank or force:
             path = CURATED[sku]
             applied.append((idx, sku, path + (" [FORCED]" if force and not refused else "")))
             updates.append({"range": f"{col_letter(col_map['Category'])}{idx}", "values": [[path]]})
