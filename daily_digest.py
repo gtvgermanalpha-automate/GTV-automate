@@ -28,6 +28,7 @@ STORES = [
     ("OpenMaal Full", "csopmaal-auto/openmaal-full-automate", "full"),
     ("YRA Full", "yraglobalalpha-automate/yra-full-automate", "full"),
     ("Arden", "arden-auto/arden-onbuy-auto", "semi"),
+    ("Arden Full", "arden-auto/arden-full-automate", "full"),
     ("GTV Semi", "gtvgermanalpha-automate/GTV-semi-automate", "semi"),
     ("YRA Semi", "yraglobalalpha-automate/yra-global-onbuy-sync", "semi"),
     ("Makstore", "makstore-auto/makstore-automate", "semi"),
