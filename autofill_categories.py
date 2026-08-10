@@ -18,6 +18,12 @@ SHEET_NAME = "OnBuy_Feed_Master"
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 
 CURATED = {
+    # 2026-08-10: Toshiba Smart TVs the scorer filed under Network
+    # Bluetooth Adapters ("bluetooth" title word; no TV leaf reachable by
+    # scoring). The matcher now has a title-phrase override for TV titles;
+    # these two repair the rows it already poisoned (FORCE below):
+    "932057319715": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
+    "932196867238": "Electronics & Technology > TV & Audio > TVs & Accessories > TVs",
     # 2026-08-06 batch (run 31078055133): Android TV boxes and a comic
     # compendium - no eBay Type, no leaf named in the titles:
     "927574510066": "Electronics & Technology > TV & Audio > Streaming & Catchup > Media Streaming Devices",
@@ -94,7 +100,7 @@ CURATED = {
 # leaf-in-title fallback filed an Opsite Post-Op wound dressing under
 # Garden Decor > Post Boxes on 2026-08-05 ("post" from Post-Op + "box"
 # from Box of 20); the matcher is fixed, this repairs the row it poisoned.
-FORCE_RECATEGORIZE = {"913619975150"}
+FORCE_RECATEGORIZE = {"913619975150", "932057319715", "932196867238"}
 
 
 def main():
