@@ -67,13 +67,14 @@ def main():
     n_cols = len(headers)
     last_needed = max(col_map[f] for f in FIELDS)
 
-    grid = sheet.get(f"A{SCAN_FROM}:{col_letter(max(n_cols, 40) - 1)}{SCAN_TO}")
+    width = max(n_cols, 110)
+    grid = sheet.get(f"A{SCAN_FROM}:{col_letter(width - 1)}{SCAN_TO}")
     ok = repaired = odd = empty = 0
     updates = []
     odd_samples = []
     for off, raw in enumerate(grid):
         rownum = SCAN_FROM + off
-        raw = list(raw) + [""] * (max(n_cols, 40) - len(raw))
+        raw = list(raw) + [""] * (width - len(raw))
         nonempty = sum(1 for v in raw if str(v or "").strip())
         if nonempty == 0:
             empty += 1
@@ -102,11 +103,11 @@ def main():
                 odd_samples.append((rownum, {f: (v[0], v[1][:40]) for f, v in found.items()}))
             continue
         repaired += 1
-        fixed = [""] * n_cols
+        fixed = [""] * width
         for f in FIELDS:
             if f in found:
                 fixed[col_map[f]] = found[f][1]
-        updates.append({"range": f"A{rownum}:{col_letter(n_cols - 1)}{rownum}",
+        updates.append({"range": f"A{rownum}:{col_letter(width - 1)}{rownum}",
                         "values": [fixed]})
         if repaired <= 3:
             print(f"  sample row {rownum}: " + ", ".join(
