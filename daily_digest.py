@@ -22,7 +22,7 @@ HEADERS = {"Authorization": f"Bearer {TOKEN}", "User-Agent": "fleet-digest",
            "Accept": "application/vnd.github+json"}
 API = "https://api.github.com"
 
-# (label, owner/repo, tier). Makstore is expected paused - reported as such.
+# (label, owner/repo, tier).
 STORES = [
     ("GTV (main)", "gtvgermanalpha-automate/GTV-automate", "full"),
     ("OpenMaal Full", "csopmaal-auto/openmaal-full-automate", "full"),
@@ -31,7 +31,7 @@ STORES = [
     ("Arden Full", "arden-auto/arden-full-automate", "full"),
     ("GTV Semi", "gtvgermanalpha-automate/GTV-semi-automate", "semi"),
     ("YRA Semi", "yraglobalalpha-automate/yra-global-onbuy-sync", "semi"),
-    ("Makstore", "makstore-auto/makstore-automate", "semi"),
+    ("Makstore Full", "makstore-auto/makstore-automate", "full"),
 ]
 SYNC_WF = "run.yml"
 BACKFILL_WF = "backfill_onbuy_status.yml"
