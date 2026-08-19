@@ -46,6 +46,12 @@ def main():
         except Exception as exc:
             log.info("PAGE FAILED: %s", str(exc)[:200])
 
+    # Export-endpoint sweep: the dashboard's "Queue Custom Export" clearly
+    # has backend endpoints - check whether the seller API exposes them.
+    for path in ["exports", "listings/exports", "exports/listings",
+                 "inventory/exports", "reports", "listings/export"]:
+        try_get(onbuy, f"GET /{path}", f"{BASE_URL}/{path}", {"site_id": onbuy.site_id, "limit": 2})
+
     for pid in PRODUCT_IDS:
         log.info("======== product_id %s ========", pid)
         try_get(onbuy, f"products/{pid}", f"{BASE_URL}/products/{pid}",
