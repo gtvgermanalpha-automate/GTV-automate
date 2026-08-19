@@ -66,7 +66,10 @@ def main():
     try:
         comp = ss.worksheet(COMP_TAB)
     except gspread.WorksheetNotFound:
-        raise SystemExit(f"No '{COMP_TAB}' tab - import the dashboard export there first")
+        tabs = [w.title for w in ss.worksheets()]
+        raise SystemExit(f"No '{COMP_TAB}' tab - existing tabs: {tabs} - "
+                         "rename the imported tab to exactly 'Competition' "
+                         "(or the import landed in a separate spreadsheet)")
     main_sheet = ss.sheet1
 
     cost_by_sku = {}
