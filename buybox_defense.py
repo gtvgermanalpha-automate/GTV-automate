@@ -16,8 +16,9 @@ If the winner is below our floor: HOLD at floor (set price to floor if
 we're above it) and mark HELD - never chase into a loss.
 Rows without cost data are logged NO-COST and never touched.
 
-Floor = (cost + shipping) * band multiplier, same bands as pricing.py:
-<5: x2.0, 5-10: x2.0, 10-30: x1.6, 30-100: x1.6, >100: x1.5.
+Floor = (cost + shipping) x DEFENSE_MULT (default 1.35 = 20% fee + 15%
+profit; user-approved defense-only tier 2026-08-19). The main pipeline's
+standard bands are unaffected.
 
 Writes a decision log back into the Competition tab (columns J+: Action,
 New Price, Floor, Decided At) and pushes price changes via the batched
@@ -39,15 +40,18 @@ UNDERCUT_PENCE = int(os.getenv("UNDERCUT_PENCE") or "1")
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 
 
+DEFENSE_MULT = float(os.getenv("DEFENSE_MULT") or "1.35")
+
+
 def floor_price(cost, shipping):
+    """Defense-only floor (user-approved 2026-08-19): 20% OnBuy fee + 15%
+    profit = x1.35 over cost+shipping. Applies ONLY inside this engine and
+    ONLY on pages we are losing - the main pipeline's standard bands are
+    untouched, so everyday prices keep their full margins."""
     base = cost + shipping
     if base <= 0:
         return None
-    if base < 10:
-        return round(base * 2.0, 2)
-    if base < 100:
-        return round(base * 1.6, 2)
-    return round(base * 1.5, 2)
+    return round(base * DEFENSE_MULT, 2)
 
 
 def to_f(v):
