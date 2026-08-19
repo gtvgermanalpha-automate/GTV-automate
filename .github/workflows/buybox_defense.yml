@@ -9,6 +9,9 @@ on:
       undercut_pence:
         description: "Pence below the winning price"
         default: "1"
+      whatif_mult:
+        description: "Optional what-if floor multiplier (analysis only)"
+        required: false
 
 # Reads the live OnBuy listings - shares the API quota/token with the sync,
 # so queue behind it rather than overlapping (see run.yml for why).
@@ -37,6 +40,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
           UNDERCUT_PENCE: ${{ inputs.undercut_pence }}
+          WHATIF_MULT: ${{ inputs.whatif_mult }}
           TWIN_SKUS: ${{ inputs.twin_skus }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}

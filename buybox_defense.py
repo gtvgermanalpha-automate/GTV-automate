@@ -93,6 +93,7 @@ def main():
     rows = comp.get_all_records()
     print(f"competition rows: {len(rows)} | sheet rows with cost: {len(cost_by_sku)}")
 
+    whatif_held = []
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     decisions = []   # (comp_rownum, action, new_price, floor)
     repricers = []   # (sku, new_price, stock)
@@ -125,16 +126,23 @@ def main():
             decisions.append((rownum, "REPRICE", f"{target:.2f}", f"{floor:.2f}"))
             repricers.append((sku, target, stock))
         else:
+            # Mode A (user decision 2026-08-19): when the winner is below
+            # our floor we do NOT sacrifice margin for a position we still
+            # would not win - keep the current price and flag the row.
             held += 1
-            if our > floor:
-                # come down to the floor but no further - stay as close to
-                # competitive as margin allows
-                decisions.append((rownum, "HELD-AT-FLOOR", f"{floor:.2f}", f"{floor:.2f}"))
-                repricers.append((sku, floor, stock))
-            else:
-                decisions.append((rownum, "HELD", "", f"{floor:.2f}"))
+            decisions.append((rownum, "HELD", "", f"{floor:.2f}"))
+            whatif_held.append((sku, our, win, cost, ship))
 
     print(f"winning/no-action: {winning} | reprice: {reprice} | held (floor): {held} | no cost basis: {no_cost}")
+    whatif = to_f(os.getenv("WHATIF_MULT") or "")
+    if whatif and whatif_held:
+        # How many currently-held pages become winnable if the floor were
+        # (cost+shipping) x WHATIF_MULT (e.g. 1.35 = 20% fee + 15% profit)?
+        winnable = [(s, o, w, round((c + sh) * whatif, 2)) for s, o, w, c, sh in whatif_held
+                    if round(w - UNDERCUT_PENCE / 100.0, 2) >= round((c + sh) * whatif, 2)]
+        print(f"WHAT-IF x{whatif}: {len(winnable)} of {len(whatif_held)} held page(s) become winnable")
+        for s, o, w, f2 in winnable[:10]:
+            print(f"  WHATIF {s}: ours={o:.2f} buybox={w:.2f} floor@x{whatif}={f2:.2f}")
     for sku, p, _ in repricers[:8]:
         print(f"  push {sku} -> {p:.2f}")
     if DRY_RUN:
