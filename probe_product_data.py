@@ -5,6 +5,9 @@ exposes for: the product's EAN/product codes, the listing owner's (Buy
 Box) price, and the competing sellers' offers. Changes nothing."""
 import logging
 import os
+import re
+
+import requests
 
 from onbuy_client import BASE_URL, OnBuyClient
 
@@ -26,6 +29,23 @@ def main():
     onbuy = OnBuyClient()
     if not onbuy.authenticate():
         raise SystemExit("OnBuy auth failed")
+    # Public product page: the seller API exposes no competitor offers, so
+    # the Buy Box owner's price must come from the page itself. Check for
+    # structured data (JSON-LD offers) and visible price markup.
+    for url in [u.strip() for u in (os.getenv("PROBE_URLS") or "").split(",") if u.strip()]:
+        try:
+            r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
+            log.info("PAGE %s [%s] %d bytes", url[:80], r.status_code, len(r.text))
+            for m in re.finditer(r'<script type="application/ld\+json">(.*?)</script>', r.text, re.S):
+                block = m.group(1).strip()
+                if '"offers"' in block or '"price"' in block:
+                    log.info("JSONLD: %s", block[:1200])
+            for m in re.finditer(r'"price"\s*:\s*"?([0-9.]+)"?', r.text[:200000]):
+                log.info("PRICE-MARK: %s", m.group(1))
+                break
+        except Exception as exc:
+            log.info("PAGE FAILED: %s", str(exc)[:200])
+
     for pid in PRODUCT_IDS:
         log.info("======== product_id %s ========", pid)
         try_get(onbuy, f"products/{pid}", f"{BASE_URL}/products/{pid}",

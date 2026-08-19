@@ -3,6 +3,10 @@ name: Probe Product Data (read-only)
 on:
   workflow_dispatch:
     inputs:
+      probe_urls:
+        description: "Product page URLs (comma-separated)"
+        required: false
+    inputs:
       twin_skus:
         description: "Bare SKUs to twin-check (comma-separated)"
         required: false
@@ -32,6 +36,7 @@ jobs:
 
       - name: Probe live listings
         env:
+          PROBE_URLS: ${{ inputs.probe_urls }}
           TWIN_SKUS: ${{ inputs.twin_skus }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
