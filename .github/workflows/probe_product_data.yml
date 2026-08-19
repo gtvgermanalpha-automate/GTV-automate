@@ -6,10 +6,6 @@ on:
       probe_urls:
         description: "Product page URLs (comma-separated)"
         required: false
-    inputs:
-      twin_skus:
-        description: "Bare SKUs to twin-check (comma-separated)"
-        required: false
 
 # Reads the live OnBuy listings - shares the API quota/token with the sync,
 # so queue behind it rather than overlapping (see run.yml for why).
