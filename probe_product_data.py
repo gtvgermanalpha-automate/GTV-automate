@@ -11,7 +11,7 @@ from onbuy_client import BASE_URL, OnBuyClient
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-OPCS = [s.strip() for s in (os.getenv("PROBE_OPCS") or "PXN6TQ8,PXMJPMV").split(",") if s.strip()]
+PRODUCT_IDS = [s.strip() for s in (os.getenv("PROBE_IDS") or "280175406,279891425").split(",") if s.strip()]
 
 
 def try_get(onbuy, label, url, params=None):
@@ -26,16 +26,16 @@ def main():
     onbuy = OnBuyClient()
     if not onbuy.authenticate():
         raise SystemExit("OnBuy auth failed")
-    for opc in OPCS:
-        log.info("======== OPC %s ========", opc)
-        try_get(onbuy, f"products/{opc}", f"{BASE_URL}/products/{opc}",
+    for pid in PRODUCT_IDS:
+        log.info("======== product_id %s ========", pid)
+        try_get(onbuy, f"products/{pid}", f"{BASE_URL}/products/{pid}",
                 {"site_id": onbuy.site_id})
-        try_get(onbuy, f"products?filter[opc]={opc}", f"{BASE_URL}/products",
-                {"site_id": onbuy.site_id, "filter[opc]": opc, "limit": 5})
-        try_get(onbuy, f"products/{opc}/listings", f"{BASE_URL}/products/{opc}/listings",
+        try_get(onbuy, f"products?filter[product_id]={pid}", f"{BASE_URL}/products",
+                {"site_id": onbuy.site_id, "filter[product_id]": pid, "limit": 5})
+        try_get(onbuy, f"products/{pid}/listings", f"{BASE_URL}/products/{pid}/listings",
                 {"site_id": onbuy.site_id})
-        try_get(onbuy, f"listings?filter[opc]={opc}", f"{BASE_URL}/listings",
-                {"site_id": onbuy.site_id, "filter[opc]": opc, "limit": 5})
+        try_get(onbuy, f"listings?filter[product_id]={pid}", f"{BASE_URL}/listings",
+                {"site_id": onbuy.site_id, "filter[product_id]": pid, "limit": 5})
 
 
 if __name__ == "__main__":
