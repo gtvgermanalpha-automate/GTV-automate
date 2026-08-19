@@ -63,13 +63,21 @@ def main():
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
         creds_dict, ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"])
     ss = gspread.authorize(creds).open(SHEET_NAME)
+    comp = None
     try:
         comp = ss.worksheet(COMP_TAB)
     except gspread.WorksheetNotFound:
+        # Imports often land as "SheetN" - auto-detect any tab whose header
+        # row matches the dashboard export format.
+        for w in ss.worksheets():
+            hdr = [str(h).strip().lower() for h in w.row_values(1)]
+            if "winning_status" in hdr and "sku" in hdr:
+                comp = w
+                print(f"using tab '{w.title}' (export headers detected)")
+                break
+    if comp is None:
         tabs = [w.title for w in ss.worksheets()]
-        raise SystemExit(f"No '{COMP_TAB}' tab - existing tabs: {tabs} - "
-                         "rename the imported tab to exactly 'Competition' "
-                         "(or the import landed in a separate spreadsheet)")
+        raise SystemExit(f"No tab with export headers found - existing tabs: {tabs}")
     main_sheet = ss.sheet1
 
     cost_by_sku = {}
