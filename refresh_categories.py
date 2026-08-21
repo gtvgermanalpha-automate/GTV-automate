@@ -89,6 +89,31 @@ def main():
         with io.open(CSV_PATH, newline="", encoding="utf-8-sig") as f:
             for r in csv.DictReader(f):
                 old[str(r.get("Category ID") or "").strip()] = str(r.get("OnBuy Category Path") or "").strip()
+
+    # OnBuy now publishes parallel department copies of whole subtrees
+    # ("TV & Home Entertainment > ... > Speakers" next to "Electronics &
+    # Technology > ... > Speakers"). Duplicate leaf names make the matcher's
+    # leaf-in-title stage refuse as ambiguous (test_speaker_title_matches_
+    # speakers_leaf, 2026-08-21). Keep every listable node of the departments
+    # the previous file already used, and from NEW departments keep only
+    # leaves whose name does not already exist there (e.g. Light Bulbs and
+    # the generic Ceiling Lights now only exist under "Appliances"). Exact
+    # duplicate paths collapse to one id (preferring the previously known).
+    old_tops = {v.split(" > ")[0] for v in old.values()}
+    leaf = lambda p: p.rsplit(" > ", 1)[-1].strip().lower()
+    old_dept = {cid: p for cid, p in listable.items() if p.split(" > ")[0] in old_tops}
+    old_leaves = {leaf(p) for p in old_dept.values()}
+    novel = {cid: p for cid, p in listable.items()
+             if p.split(" > ")[0] not in old_tops and leaf(p) not in old_leaves}
+    merged = dict(old_dept)
+    merged.update(novel)
+    bypath = {}
+    for cid, p in sorted(merged.items(), key=lambda kv: (kv[0] not in old, kv[0])):
+        bypath.setdefault(p, cid)
+    deduped = {cid: p for p, cid in bypath.items()}
+    print(f"kept {len(old_dept)} old-department + {len(novel)} novel new-department leaves; "
+          f"{len(listable) - len(deduped)} parallel copies/duplicate paths dropped -> {len(deduped)}")
+    listable = deduped
     gone = {k: v for k, v in old.items() if k not in listable}
     new_ids = {k: v for k, v in listable.items() if k not in old}
     renamed = {k: (old[k], listable[k]) for k in listable if k in old and old[k] != listable[k]}
