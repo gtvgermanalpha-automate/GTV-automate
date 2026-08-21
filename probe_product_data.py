@@ -52,6 +52,12 @@ def main():
                  "inventory/exports", "reports", "listings/export"]:
         try_get(onbuy, f"GET /{path}", f"{BASE_URL}/{path}", {"site_id": onbuy.site_id, "limit": 2})
 
+    # Arbitrary GET paths, e.g. "categories?filter[parent_id]=3472" (2026-08-21:
+    # OnBuy rejected category IDs 3472/13705 as "not a lowest level category",
+    # so the tree grew children our CSV does not have - find them).
+    for pth in [x.strip() for x in (os.getenv("PROBE_PATHS") or "").split(",") if x.strip()]:
+        try_get(onbuy, f"GET /{pth}", f"{BASE_URL}/{pth}", {"site_id": onbuy.site_id, "limit": 100})
+
     for pid in PRODUCT_IDS:
         log.info("======== product_id %s ========", pid)
         try_get(onbuy, f"products/{pid}", f"{BASE_URL}/products/{pid}",
