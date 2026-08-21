@@ -51,16 +51,37 @@ def main():
         raise SystemExit("OnBuy auth failed")
     nodes = fetch_all(onbuy)
     print(f"categories fetched: {len(nodes)}")
+    # category_tree is blank on ~700 nodes in the API response, so build
+    # every path from the parent chain instead (name of each ancestor,
+    # top-level first) - the matcher scores on path tokens, so paths must
+    # stay complete and identical in shape to the old file.
+    by_id = {str(n.get("category_id")): n for n in nodes if n.get("category_id") is not None}
+    memo = {}
+
+    def path_of(cid, depth=0):
+        if cid in memo:
+            return memo[cid]
+        n = by_id.get(cid)
+        if not n or depth > 12:
+            return ""
+        name = str(n.get("name") or "").strip()
+        parent = str(n.get("parent_id") or "").strip()
+        up = path_of(parent, depth + 1) if parent and parent in by_id else ""
+        memo[cid] = f"{up} > {name}" if up else name
+        return memo[cid]
+
     listable = {}
+    blank_tree = 0
     for n in nodes:
         if not n.get("can_list_in"):
             continue
         cid = str(n.get("category_id") or "").strip()
-        tree = str(n.get("category_tree") or "").strip()
-        name = str(n.get("name") or "").strip()
-        path = f"{tree} > {name}" if tree else name
+        if not str(n.get("category_tree") or "").strip():
+            blank_tree += 1
+        path = path_of(cid)
         if cid and path:
             listable[cid] = path
+    print(f"nodes with blank category_tree in API: {blank_tree} (paths rebuilt from parent chain)")
     print(f"listable (can_list_in=true): {len(listable)}")
 
     old = {}
