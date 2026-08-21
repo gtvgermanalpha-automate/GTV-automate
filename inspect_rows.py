@@ -166,6 +166,7 @@ def main():
                 continue
             print("")
             print(f"ROW {r} SKU {s} | onbuy name: {str(it.get('name'))[:140]} | price {it.get('price')} stock {it.get('stock')} | opc {it.get('opc')}")
+            print(f"  codes: {it.get('product_codes')} | created_at: {it.get('created_at')} | listing_id: {it.get('product_listing_id')}")
             url = it.get("product_url")
             print(f"  url: {url}")
             try:
