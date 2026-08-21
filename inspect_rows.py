@@ -101,8 +101,17 @@ def main():
         nxt = sim(d, cell(r + 1, "Title")) if r < len(values) else 0.0
         return own, prev, nxt
 
-    if ROWS:
-        for r in parse_rows(ROWS):
+    rows_wanted = parse_rows(ROWS) if ROWS else []
+    skus_env = [s.strip() for s in (os.getenv("SKUS") or "").split(",") if s.strip()]
+    if skus_env:
+        want_s = set(skus_env)
+        for rr in range(2, len(values) + 1):
+            if cell(rr, "SKU").strip() in want_s:
+                rows_wanted.append(rr)
+        print(f"SKUS resolved: {len(rows_wanted)} row(s) for {len(skus_env)} SKU(s)")
+    ROWS_EFFECTIVE = ",".join(str(x) for x in rows_wanted)
+    if rows_wanted:
+        for r in rows_wanted:
             own, prev, nxt = score(r)
             verdict = "OK" if own >= max(prev, nxt) else ("NEXT-ROW?" if nxt > prev else "PREV-ROW?")
             print("")
@@ -128,9 +137,9 @@ def main():
         for r, sku, own, prev, nxt in flagged:
             print(f"  FLAG row {r} sku {sku} own={own} prev={prev} next={nxt} -> {'NEXT' if nxt > prev else 'PREV'}")
 
-    if FETCH_ONBUY and ROWS:
+    if FETCH_ONBUY and rows_wanted:
         want = {}
-        for r in parse_rows(ROWS):
+        for r in rows_wanted:
             s = cell(r, "SKU").strip()
             if s:
                 want[s] = r

@@ -7,6 +7,10 @@ on:
         description: "Row numbers/ranges, e.g. 4442-4444,4514-4531"
         required: false
         default: ""
+      skus:
+        description: "Comma-separated SKUs to resolve to rows (in addition to rows)"
+        required: false
+        default: ""
       scan_all:
         description: "Sweep the whole sheet for description/neighbour-title shifts"
         required: false
@@ -42,6 +46,7 @@ jobs:
           ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
           ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
           ROWS: ${{ inputs.rows }}
+          SKUS: ${{ inputs.skus }}
           SCAN_ALL: ${{ inputs.scan_all }}
           FETCH_ONBUY: ${{ inputs.fetch_onbuy }}
         run: python inspect_rows.py
