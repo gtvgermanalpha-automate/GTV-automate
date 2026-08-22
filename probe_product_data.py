@@ -3,6 +3,7 @@ For each given OPC, hit every plausible product/offer endpoint and print
 the verbatim responses - we need to learn exactly which fields OnBuy
 exposes for: the product's EAN/product codes, the listing owner's (Buy
 Box) price, and the competing sellers' offers. Changes nothing."""
+import json
 import logging
 import os
 import re
@@ -57,6 +58,15 @@ def main():
     # so the tree grew children our CSV does not have - find them).
     for pth in [x.strip() for x in (os.getenv("PROBE_PATHS") or "").split(",") if x.strip()]:
         try_get(onbuy, f"GET /{pth}", f"{BASE_URL}/{pth}", {"site_id": onbuy.site_id, "limit": 100})
+
+    # Buy Box probe (2026-08-21): OnBuy support named GET /v2/listings/check-winning.
+    wsk = [x.strip() for x in (os.getenv("PROBE_WINNING_SKUS") or "").split(",") if x.strip()]
+    if wsk:
+        try:
+            res = onbuy.check_winning(wsk)
+            log.info("CHECK-WINNING parsed: %s", json.dumps(res)[:3000] if res is not None else None)
+        except Exception as exc:
+            log.info("CHECK-WINNING FAILED: %s", str(exc)[:400])
 
     for pid in PRODUCT_IDS:
         log.info("======== product_id %s ========", pid)

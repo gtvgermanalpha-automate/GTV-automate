@@ -7,6 +7,10 @@ on:
         description: "Comma-separated API paths to GET, e.g. categories?filter[parent_id]=3472"
         required: false
         default: ""
+      probe_winning_skus:
+        description: "Comma-separated SKUs for GET /v2/listings/check-winning"
+        required: false
+        default: ""
       probe_urls:
         description: "Product page URLs (comma-separated)"
         required: false
@@ -37,6 +41,7 @@ jobs:
       - name: Probe live listings
         env:
           PROBE_URLS: ${{ inputs.probe_urls }}
+          PROBE_WINNING_SKUS: ${{ inputs.probe_winning_skus }}
           PROBE_PATHS: ${{ inputs.probe_paths }}
           TWIN_SKUS: ${{ inputs.twin_skus }}
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
