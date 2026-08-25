@@ -1,20 +1,2 @@
-# OnBuy content-shift incident 2026-08-21: listings whose OnBuy page shows another product.
 # No price/stock pushes (main loop + activation pass) until the content repair is verified.
-694385977035
-756602340692
-756842321512
-757006191989
-757142393476
-757356619591
-757654311043
-757763636464
-757775414371
-758305822536
-758735807073
-773086105845
-831364095278
-754960577491
-756352925224
-756464168533
-781908348462
-883439848005
+# OnBuy content-shift incident 2026-08-21: listings whose OnBuy page shows another product.
