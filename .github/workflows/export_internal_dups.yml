@@ -1,0 +1,31 @@
+name: Export Internal Dups
+
+on:
+  workflow_dispatch:
+    inputs:
+      block_start:
+        description: "First sheet row number of the appended import block (rows from here are excluded)"
+        required: false
+        default: "999999"
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Export
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          BLOCK_START: ${{ inputs.block_start }}
+          OUT: internal_dups.csv
+        run: python export_internal_dups.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: internal-dups
+          path: internal_dups.csv
