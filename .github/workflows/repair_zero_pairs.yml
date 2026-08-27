@@ -1,0 +1,28 @@
+name: Repair Zero Pairs
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "yes = list; no = repair the census pairs"
+        required: false
+        default: "yes"
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Repair
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+        run: python repair_zero_pairs.py
