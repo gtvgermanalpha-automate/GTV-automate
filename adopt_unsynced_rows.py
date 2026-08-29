@@ -25,6 +25,12 @@ from retry_utils import with_retry
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 SHEET_NAME = "OnBuy_Feed_Master"
 STATUS_PREFIX = "Awaiting OnBuy go-live"
+# "1": rows with NO live match are primed too (Synced + blank sync) so the
+# activation pass retries the WHOLE pool in one batch every sync run -
+# sub-2h adoption once OnBuy finally indexes a listing, instead of ~daily
+# rotation retries. Safe: a bounce leaves the row pending (not stamped),
+# and "Synced" keeps already_created true so the create path never opens.
+PRIME_ALL = (os.getenv("PRIME_ALL") or "").strip() == "1"
 
 
 def col_letter(idx0):
@@ -139,6 +145,11 @@ def main():
             elif cands:
                 print(f"AMBIGUOUS row {rownum} {sku!r}: live variants {cands}")
                 ambiguous += 1
+                continue
+            elif PRIME_ALL:
+                frozen += 1
+                updates.append((f"{col_letter(col['Sync Status'])}{rownum}", [["Synced"]]))
+                updates.append((f"{col_letter(col['Last OnBuy Sync'])}{rownum}", [[""]]))
                 continue
             else:
                 frozen += 1

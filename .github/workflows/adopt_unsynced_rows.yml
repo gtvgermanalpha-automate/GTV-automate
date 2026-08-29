@@ -35,5 +35,6 @@ jobs:
           ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
           ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
           ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+          PRIME_ALL: ${{ inputs.prime_all }}
           DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
         run: python adopt_unsynced_rows.py
