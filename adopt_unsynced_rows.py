@@ -69,9 +69,13 @@ def page_live(onbuy):
                 except (TypeError, ValueError):
                     lst = 0
                 out[s] = (lp, lst)
-        if len(items) < limit:
-            break
+        # A short NON-empty page does not mean the end - OnBuy intermittently
+        # returns thin pages mid-catalogue (truncated a 2026-08-29 GTV pass
+        # to 7,591 of 8,500+ and mis-froze live rows). Only an empty page
+        # stops the walk; the cap is a runaway guard.
         offset += limit
+        if offset > 30000:
+            break
         time.sleep(0.3)
     return out
 
