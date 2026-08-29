@@ -7,6 +7,10 @@ on:
         description: "yes = list; no = flip live-SKU awaiting rows to the adoption path"
         required: false
         default: "yes"
+      prime_all:
+        description: "1 = also prime no-live-match rows for per-run activation retries"
+        required: false
+        default: ""
 
 concurrency:
   group: onbuy-api
