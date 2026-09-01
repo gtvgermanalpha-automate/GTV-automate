@@ -147,6 +147,11 @@ def main():
                 print(f"   rate-limit headers: {json.dumps(c.last_rate_headers)}")
         except Exception as exc:
             print(f"\n=== {label}: FAILED - {type(exc).__name__}: {str(exc)[:300]}")
+            if c.attempts:
+                print("   every transport tried (label | status | body | WWW-Authenticate):")
+                for lbl, status, snippet, hint in c.attempts:
+                    print(f"      {lbl:38s} | {status} | {snippet or chr(40) + chr(41)} | {hint or chr(45)}")
+                c.attempts = []
 
     print("\nrate-limit headers seen on the last call: "
           f"{json.dumps(c.last_rate_headers) if c.last_rate_headers else 'NONE (ask Avasam for the numbers)'}")

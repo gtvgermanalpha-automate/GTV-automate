@@ -28,7 +28,10 @@ TIMEOUT = int(os.getenv("AVASAM_TIMEOUT") or "60")
 # as a header, and the Seller API's "header details" tables are really body
 # parameters (Page/Limit appear in the Request Body). So body forms are tried
 # first, headers second. Discovered form is cached on the client.
-def _auth_candidates(token):
+def _auth_candidates(token, customer_id="", consumer_key="", secret_key=""):
+    cid_h = {"customerId": customer_id} if customer_id else {}
+    cid_b = {"customerId": customer_id} if customer_id else {}
+    keys_h = {"Consumer_key": consumer_key, "secret_key": secret_key} if consumer_key else {}
     return [
         ("body:AuthorizationToken", {}, {"AuthorizationToken": token}),
         ("body:SessionToken", {}, {"SessionToken": token}),
@@ -43,6 +46,16 @@ def _auth_candidates(token):
         ("header:AuthorizationToken", {"AuthorizationToken": token}, {}),
         ("both:Bearer+AuthorizationToken", {"Authorization": f"Bearer {token}"},
          {"AuthorizationToken": token}),
+        # customerId-bearing forms (auth returns it; docs call it ClientID)
+        ("hdr:Bearer+body:customerId", {"Authorization": f"Bearer {token}"}, dict(cid_b)),
+        ("hdr:Bearer+hdr:customerId", {"Authorization": f"Bearer {token}", **cid_h}, {}),
+        ("body:token+customerId", {}, {"token": token, **cid_b}),
+        ("body:AuthorizationToken+customerId", {}, {"AuthorizationToken": token, **cid_b}),
+        ("body:SessionToken+Authkey=customerId", {}, {"SessionToken": token,
+                                                      "Authkey": customer_id}),
+        # keys-on-every-call form (some Avasam docs list them as call headers)
+        ("hdr:keys+Bearer", {**keys_h, "Authorization": f"Bearer {token}"}, {}),
+        ("hdr:keys only", dict(keys_h), {}),
     ]
 
 
@@ -54,6 +67,7 @@ class AvasamClient:
         self.expires_at = None
         self.auth_style = None          # learned on the first successful data call
         self.auth_response_keys = []
+        self.attempts = []              # (label, status, body snippet, WWW-Authenticate)
         self.client_id = ""
         self.end_point = ""
         self.last_rate_headers = {}     # docs mention a rate limit but never quantify it
@@ -95,7 +109,10 @@ class AvasamClient:
         self.expires_at = body.get("expires_at")
         self.auth_response_keys = sorted(body.keys()) if isinstance(body, dict) else []
         # docs prose also mentions a ClientID / End Point for later calls
-        self.client_id = (body.get("ClientID") or body.get("clientId")
+        # The auth response's real key is "customerId" (the docs' prose calls
+        # it ClientID) - confirmed live 2026-09-01.
+        self.client_id = (body.get("customerId") or body.get("CustomerId")
+                          or body.get("ClientID") or body.get("clientId")
                           or body.get("client_id") or "")
         self.end_point = (body.get("EndPoint") or body.get("end_point")
                           or body.get("endpoint") or "")
@@ -109,7 +126,8 @@ class AvasamClient:
         Avasam accepts the token in the body (supplier-API convention), so
         each candidate may add headers, body fields, or both."""
         url = f"{BASE_URL}{path}"
-        cands = _auth_candidates(self.token)
+        cands = _auth_candidates(self.token, self.client_id,
+                                 self.consumer_key, self.secret_key)
         if self.auth_style:
             cands = [c for c in cands if c[0] == self.auth_style] or cands
         last = None
@@ -131,6 +149,9 @@ class AvasamClient:
 
             resp = with_retry(_call, what=what, max_attempts=2)
             self._remember_rate_headers(resp)
+            hint = resp.headers.get("WWW-Authenticate") or resp.headers.get("www-authenticate") or ""
+            self.attempts.append((label, resp.status_code,
+                                  " ".join((resp.text or "").split())[:120], hint))
             if resp.status_code in (401, 403):
                 last = f"{label} -> {resp.status_code} {resp.text[:100]}"
                 continue
