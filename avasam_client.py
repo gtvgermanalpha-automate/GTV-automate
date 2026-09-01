@@ -23,8 +23,27 @@ from retry_utils import AuthError, PermanentError, RateLimitError, TransientErro
 BASE_URL = (os.getenv("AVASAM_BASE_URL") or "https://app.avasam.com").rstrip("/")
 TIMEOUT = int(os.getenv("AVASAM_TIMEOUT") or "60")
 
-# Tried in order until one returns a non-auth answer; see module docstring.
-AUTH_STYLES = ("bearer", "authkey", "token", "access_token")
+# Avasam's SUPPLIER API (same platform, clearer docs) passes its auth token
+# INSIDE THE JSON BODY - "SessionToken"/"AuthorizationToken"/"AuthKey" - not
+# as a header, and the Seller API's "header details" tables are really body
+# parameters (Page/Limit appear in the Request Body). So body forms are tried
+# first, headers second. Discovered form is cached on the client.
+def _auth_candidates(token):
+    return [
+        ("body:AuthorizationToken", {}, {"AuthorizationToken": token}),
+        ("body:SessionToken", {}, {"SessionToken": token}),
+        ("body:token", {}, {"token": token}),
+        ("body:access_token", {}, {"access_token": token}),
+        ("body:Authkey", {}, {"Authkey": token}),
+        ("body:Token", {}, {"Token": token}),
+        ("header:Bearer", {"Authorization": f"Bearer {token}"}, {}),
+        ("header:Authkey", {"Authkey": token}, {}),
+        ("header:token", {"token": token}, {}),
+        ("header:access_token", {"access_token": token}, {}),
+        ("header:AuthorizationToken", {"AuthorizationToken": token}, {}),
+        ("both:Bearer+AuthorizationToken", {"Authorization": f"Bearer {token}"},
+         {"AuthorizationToken": token}),
+    ]
 
 
 class AvasamClient:
@@ -34,6 +53,9 @@ class AvasamClient:
         self.token = None
         self.expires_at = None
         self.auth_style = None          # learned on the first successful data call
+        self.auth_response_keys = []
+        self.client_id = ""
+        self.end_point = ""
         self.last_rate_headers = {}     # docs mention a rate limit but never quantify it
 
     # ---------------- auth ----------------
@@ -71,48 +93,53 @@ class AvasamClient:
         self.token = (body.get("access_token") or body.get("token")
                       or body.get("authorisation_token") or "")
         self.expires_at = body.get("expires_at")
+        self.auth_response_keys = sorted(body.keys()) if isinstance(body, dict) else []
+        # docs prose also mentions a ClientID / End Point for later calls
+        self.client_id = (body.get("ClientID") or body.get("clientId")
+                          or body.get("client_id") or "")
+        self.end_point = (body.get("EndPoint") or body.get("end_point")
+                          or body.get("endpoint") or "")
         if not self.token:
             raise AuthError(f"avasam auth returned no token: {str(body)[:200]}")
         return True
 
-    def _auth_headers(self, style):
-        base = {"Content-Type": "application/json"}
-        if style == "bearer":
-            base["Authorization"] = f"Bearer {self.token}"
-        elif style == "authkey":
-            base["Authkey"] = self.token
-        elif style == "token":
-            base["token"] = self.token
-        else:
-            base["access_token"] = self.token
-        return base
-
     # ---------------- transport ----------------
     def _post(self, path, payload, what):
-        """POST a data call, discovering the token transport on first use."""
+        """POST a data call, discovering the token transport on first use.
+        Avasam accepts the token in the body (supplier-API convention), so
+        each candidate may add headers, body fields, or both."""
         url = f"{BASE_URL}{path}"
-        styles = [self.auth_style] if self.auth_style else list(AUTH_STYLES)
-        last_err = None
-        for style in styles:
-            def _call(style=style):
-                r = requests.post(url, json=payload, headers=self._auth_headers(style),
-                                  timeout=TIMEOUT)
+        cands = _auth_candidates(self.token)
+        if self.auth_style:
+            cands = [c for c in cands if c[0] == self.auth_style] or cands
+        last = None
+        for label, hdr_extra, body_extra in cands:
+            headers = {"Content-Type": "application/json"}
+            headers.update(hdr_extra)
+            body = dict(payload)
+            body.update(body_extra)
+            if self.client_id:
+                body.setdefault("ClientID", self.client_id)
+
+            def _call(headers=headers, body=body):
+                r = requests.post(url, json=body, headers=headers, timeout=TIMEOUT)
                 if r.status_code == 429:
                     raise RateLimitError(f"{what} rate limited: {r.text[:200]}")
                 if r.status_code >= 500:
                     raise TransientError(f"{what} {r.status_code}: {r.text[:200]}")
                 return r
-            resp = with_retry(_call, what=what, max_attempts=3)
+
+            resp = with_retry(_call, what=what, max_attempts=2)
             self._remember_rate_headers(resp)
             if resp.status_code in (401, 403):
-                last_err = f"{resp.status_code} {resp.text[:120]}"
-                time.sleep(0.5)
-                continue  # try the next transport form
+                last = f"{label} -> {resp.status_code} {resp.text[:100]}"
+                continue
             if resp.status_code >= 400:
-                raise PermanentError(f"{what} {resp.status_code}: {resp.text[:300]}")
-            self.auth_style = style
+                last = f"{label} -> {resp.status_code} {resp.text[:200]}"
+                continue
+            self.auth_style = label
             return resp.json() if resp.content else None
-        raise AuthError(f"{what}: no token transport accepted (last: {last_err})")
+        raise AuthError(f"{what}: no token transport accepted (last: {last})")
 
     def _remember_rate_headers(self, resp):
         self.last_rate_headers = {
