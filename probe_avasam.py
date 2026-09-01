@@ -133,7 +133,7 @@ def main():
     c.authenticate()
     print(f"AUTH OK - token acquired, expires_at={c.expires_at}")
     print(f"auth response fields: {c.auth_response_keys or '(none)'}"
-          f" | ClientID: {'yes' if c.client_id else 'no'}"
+          f" | customerId: {c.client_id or 'none'} (quote this to Avasam support)"
           f" | EndPoint: {c.end_point or 'not returned'}")
 
     for label, fn in (("GetSellerProductList", lambda: c.get_seller_product_list(0, LIMIT)),

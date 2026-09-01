@@ -53,6 +53,18 @@ def _auth_candidates(token, customer_id="", consumer_key="", secret_key=""):
         ("body:AuthorizationToken+customerId", {}, {"AuthorizationToken": token, **cid_b}),
         ("body:SessionToken+Authkey=customerId", {}, {"SessionToken": token,
                                                       "Authkey": customer_id}),
+        # Support (2026-09-01): "the Authkey header is the correct approach" -
+        # but Authkey=token 401s. In the Supplier API, Authkey carries an
+        # ACCOUNT CODE, not the token - so try customerId / consumer key
+        # there, with the token elsewhere or nowhere.
+        ("hdr:Authkey=customerId", dict(cid_h_authkey := {"Authkey": customer_id} if customer_id else {}), {}),
+        ("hdr:Authkey=customerId+Bearer", {**({"Authkey": customer_id} if customer_id else {}),
+                                           "Authorization": f"Bearer {token}"}, {}),
+        ("hdr:Authkey=customerId+body:token", {**({"Authkey": customer_id} if customer_id else {})},
+         {"token": token}),
+        ("hdr:Authkey=consumerKey", {"Authkey": consumer_key} if consumer_key else {}, {}),
+        ("hdr:Authkey=consumerKey+Bearer", {**({"Authkey": consumer_key} if consumer_key else {}),
+                                            "Authorization": f"Bearer {token}"}, {}),
         # keys-on-every-call form (some Avasam docs list them as call headers)
         ("hdr:keys+Bearer", {**keys_h, "Authorization": f"Bearer {token}"}, {}),
         ("hdr:keys only", dict(keys_h), {}),
