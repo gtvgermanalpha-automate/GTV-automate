@@ -1,0 +1,36 @@
+name: Probe Avasam (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "How many products to pull per endpoint (10 is plenty)"
+        required: false
+        default: "10"
+      show:
+        description: "How many sample rows to print in full"
+        required: false
+        default: "3"
+
+# Avasam has its own quota and touches neither OnBuy nor the Sheet, so this
+# deliberately stays OUT of the onbuy-api group - it must never queue behind
+# (or delay) a sync.
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe
+        env:
+          AVASAM_CONSUMER_KEY: ${{ secrets.AVASAM_CONSUMER_KEY }}
+          AVASAM_SECRET_KEY: ${{ secrets.AVASAM_SECRET_KEY }}
+          PROBE_LIMIT: ${{ inputs.limit }}
+          PROBE_SHOW: ${{ inputs.show }}
+        run: python probe_avasam.py
