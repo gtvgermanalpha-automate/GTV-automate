@@ -24,6 +24,14 @@ write would otherwise hit whichever product won the collision. Those stay
 unaddressable until the platform corrects the SKUs.
 
 This is a bridge, not a cure: the listings should be corrected at source.
+
+2026-09-04: OnBuy corrected them at source - the wrong-SKU listings were
+removed and re-added against the same products under our real SKUs, with
+price/stock/settings carried over (support, ticket reply). The re-probe
+confirmed 7,707 sheet SKUs now answer exactly and only the 4 collision
+OPCs remain, which by the ambiguity rule were never aliased - so the data
+file is empty and this module is a deliberate no-op until a corruption
+ever appears again (regenerate via probe_sku_rounding.yml).
 """
 import csv
 import io
