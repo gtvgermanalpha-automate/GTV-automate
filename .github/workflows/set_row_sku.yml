@@ -1,0 +1,50 @@
+name: Set Row SKU (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      row:
+        description: "Sheet row number to fix"
+        required: true
+      new_sku:
+        description: "The SKU to assign (must be unused elsewhere in the sheet)"
+        required: true
+      expect_sku:
+        description: "Safety: the SKU the row holds now - aborts if it differs"
+        required: false
+        default: ""
+      expect_title:
+        description: "Safety: text the row's Title must start with"
+        required: false
+        default: ""
+      dry_run:
+        description: "yes = show the change without writing"
+        required: false
+        default: "yes"
+
+# Writes to the sheet the sync also writes to - queue behind it rather than
+# racing its read/modify/write cycle (see run.yml).
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Set SKU
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ROW: ${{ inputs.row }}
+          NEW_SKU: ${{ inputs.new_sku }}
+          EXPECT_SKU: ${{ inputs.expect_sku }}
+          EXPECT_TITLE: ${{ inputs.expect_title }}
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+        run: python set_row_sku.py
