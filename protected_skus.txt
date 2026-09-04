@@ -7,7 +7,6 @@
 757006191989
 757142393476
 757356619591
-757763636464
 758735807073
 773086105845
 781908348462
@@ -28,3 +27,7 @@ Ebay-136794646505-13
 Ebay-157617590047-5
 # 2026-08-31 write-shift incident: all 35 repaired, verified live (scan
 # 33400462772) and RELEASED same day, plus 6 older healed fences.
+# 2026-09-04: 757763636464 released - OnBuy's API logs showed our own
+# submission carried the wrong content (not a platform fault); correct
+# content resubmitted (queue 6a9a6a0a8647ac7a4b0bc092) and verified on
+# scan 33860732684 as "HP 510 Ultra Mouse Black". Stock/price restored.
