@@ -143,8 +143,7 @@ def main():
     for r in parse_rows(RAW):
         if r - 1 < len(values):
             d = cell(values[r - 1], "Description")
-            print(f"
-===== RAW DESCRIPTION row {r} ({len(d)} chars) =====")
+            print(f"\n===== RAW DESCRIPTION row {r} ({len(d)} chars) =====")
             print(d[:14000])
             print("===== END =====")
 
@@ -163,8 +162,7 @@ def main():
                 if len(examples) < 40:
                     examples.append((r, cell(values[r - 1], "SKU"), ",".join(labels)))
         filled = sum(1 for row in values[1:] if cell(row, "Description"))
-        print(f"
-SCAN_ALL: {rows_hit} of {filled} filled descriptions still carry seller junk")
+        print(f"\nSCAN_ALL: {rows_hit} of {filled} filled descriptions still carry seller junk")
         for lbl, n in per_label.most_common():
             print(f"    {lbl}: {n}")
         for r, s, l in examples:
