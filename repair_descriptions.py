@@ -51,6 +51,9 @@ SELECT_MARKED = (os.getenv("SELECT_MARKED") or "1").strip().lower() not in ("0",
 # CSV-era rows never had an OPC written to the sheet or mirror, so keying on
 # stored OPCs misses most of the catalogue (YRA: 1,359 of ~8k live, 2026-08-23).
 USE_LISTINGS_OPC = (os.getenv("USE_LISTINGS_OPC") or "0").strip().lower() in ("1", "yes", "true")
+# Restrict to named SKUs (staged verification: the rows the team flagged
+# go first, and the marker gate does not apply to a row someone named).
+LIMIT_SKUS = {s.strip() for s in (os.getenv("LIMIT_SKUS") or "").split(",") if s.strip()}
 
 
 def listings_opc_map(onbuy):
@@ -116,10 +119,13 @@ def main():
         if not clean.strip():
             skipped_empty += 1
             continue
+        sku = str(r.get("SKU") or "").strip()
+        if LIMIT_SKUS and sku not in LIMIT_SKUS:
+            continue
         marked = any(m in raw.lower() for m in _JUNK_MARKERS)
         if marked:
             had_junk += 1
-        if SELECT_MARKED and not marked:
+        if SELECT_MARKED and not marked and not LIMIT_SKUS:
             continue
         updates.append({"opc": opc, "description": clean,
                         "_sku": str(r.get("SKU") or "")})

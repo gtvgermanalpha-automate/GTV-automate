@@ -18,6 +18,10 @@ on:
       use_listings_opc:
         description: "yes = take SKU->OPC from the live listings API (covers adopted rows with no stored OPC)"
         default: "no"
+      limit_skus:
+        description: "Comma-separated SKUs to restrict to (the marker gate is bypassed for named rows)"
+        required: false
+        default: ""
 
 # OnBuy-touching: queue behind the scheduled sync, never overlap.
 concurrency:
