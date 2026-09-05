@@ -17,6 +17,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 SHEET_NAME = os.getenv("SHEET_NAME") or "OnBuy_Feed_Master"
 ROWS = os.getenv("ROWS") or ""
+RAW = os.getenv("RAW") or ""          # rows whose full description HTML to print
+SCAN_ALL = (os.getenv("SCAN_ALL") or "").strip().lower() in ("1", "true", "yes")
 OUT = "dump_rows.csv"
 
 JUNK = [
@@ -137,6 +139,36 @@ def main():
             print(f"        {o['junk_detail'][:300]}")
         if o["colour"] == "red":
             print(f"        main image: {o['main_image'][:120]}")
+
+    for r in parse_rows(RAW):
+        if r - 1 < len(values):
+            d = cell(values[r - 1], "Description")
+            print(f"
+===== RAW DESCRIPTION row {r} ({len(d)} chars) =====")
+            print(d[:14000])
+            print("===== END =====")
+
+    if SCAN_ALL:
+        from collections import Counter
+        per_label, rows_hit, examples = Counter(), 0, []
+        for r in range(2, len(values) + 1):
+            d = cell(values[r - 1], "Description")
+            if not d:
+                continue
+            text = re.sub(r"<[^>]+>", " ", d)
+            labels = [lbl for lbl, rx in JUNK if rx.search(text if lbl != "link" else d)]
+            if labels:
+                rows_hit += 1
+                per_label.update(labels)
+                if len(examples) < 40:
+                    examples.append((r, cell(values[r - 1], "SKU"), ",".join(labels)))
+        filled = sum(1 for row in values[1:] if cell(row, "Description"))
+        print(f"
+SCAN_ALL: {rows_hit} of {filled} filled descriptions still carry seller junk")
+        for lbl, n in per_label.most_common():
+            print(f"    {lbl}: {n}")
+        for r, s, l in examples:
+            print(f"    row {r} {s} [{l}]")
 
 
 if __name__ == "__main__":
