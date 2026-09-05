@@ -61,4 +61,5 @@ jobs:
           SKIP_FIRST: ${{ inputs.skip_first }}
           SELECT_MARKED: ${{ inputs.select_marked == 'no' && '0' || '1' }}
           USE_LISTINGS_OPC: ${{ inputs.use_listings_opc == 'yes' && '1' || '0' }}
+          LIMIT_SKUS: ${{ inputs.limit_skus }}
         run: python repair_descriptions.py
