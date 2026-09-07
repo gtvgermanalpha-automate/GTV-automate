@@ -1,0 +1,47 @@
+name: Verify Descriptions (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      skus:
+        description: "Comma-separated SKUs to read back from OnBuy"
+        required: true
+      fetch_pages:
+        description: "Also try the public product page when the API gives no description"
+        required: false
+        default: "yes"
+
+# Reads the listings API - shares the quota with the sync, so queue behind it.
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Verify
+        env:
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_TEST_CONSUMER_KEY: ${{ secrets.ONBUY_TEST_CONSUMER_KEY }}
+          ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+          SKUS: ${{ inputs.skus }}
+          FETCH_PAGES: ${{ inputs.fetch_pages }}
+        run: python verify_descriptions.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-descriptions
+          path: verify_descriptions.csv
+          if-no-files-found: warn
