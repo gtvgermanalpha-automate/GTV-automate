@@ -99,8 +99,10 @@ def main():
         if available:
             print(f"    cost £{d['price']:.2f} -> stock {d['stock']} | brand: {d['brand'] or '-'} | title: {d['title'][:80]}")
             print(f"    images: {1 if d['main_image'] else 0} + {len(d['additional_images'])} | description {len(d['description'])} chars")
-        print(f"    barcodes: {d['eans'] or '-'} | SKU matches: "
-              f"{'yes' if digits and digits in d['eans'] else ('NO - fix the SKU' if d['eans'] else 'unknown (Keepa lists none)')}")
+        # The SKU is the seller's own barcode (same rule as the eBay tab);
+        # the manufacturer codes Keepa knows are shown for reference only.
+        print(f"    manufacturer barcodes (Keepa): {d['eans'] or '-'}"
+              + (" | SKU is one of them" if digits and digits in d['eans'] else ""))
         print(f"    category: {d['category_path'] or '-'} | type hint: {d['product_type'] or '-'} | Keepa updated: {d['keepa_updated'] or '-'}")
         if sku and sku in ebay_skus:
             print("    WARNING: this SKU is already used on the eBay tab - the sync will refuse it")

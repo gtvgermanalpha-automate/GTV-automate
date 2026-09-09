@@ -1632,19 +1632,14 @@ def main():
             logger.warning("Row %d: no SKU provided (OnBuy requires a unique SKU per product) - skipping until one is added", i)
             continue
 
-        # Amazon-tab guards, flagged in Sync Status and never pushed: the
-        # SKU must be one of the product's own barcodes (Keepa lists them),
-        # and a SKU already used on the eBay tab is one product listed twice.
+        # Amazon-tab guard, flagged in Sync Status and never pushed: a SKU
+        # already used on the eBay tab is one product listed twice. (The SKU
+        # is the seller's OWN barcode, as on the eBay tab - the manufacturer
+        # EANs Keepa lists are informational, never a match requirement.)
         amazon_flag = ""
-        if supplier == "Amazon":
-            _digits = sku_numeric_part(sku)
-            if sku in ebay_tab_skus:
-                amazon_flag = "Failed: this SKU is already used on the eBay tab - one product per SKU"
-            elif available and ebay_data.get("eans") and _digits not in ebay_data["eans"]:
-                amazon_flag = (f"Failed: SKU {_digits or sku} is not one of this product's barcodes "
-                               f"({', '.join(ebay_data['eans'][:4])}) - correct the SKU")
-            if amazon_flag:
-                logger.warning("Row %d (SKU %s): %s", i, sku, amazon_flag)
+        if supplier == "Amazon" and sku in ebay_tab_skus:
+            amazon_flag = "Failed: this SKU is already used on the eBay tab - one product per SKU"
+            logger.warning("Row %d (SKU %s): %s", i, sku, amazon_flag)
         # The categoriser reads text; Amazon's category tree is the best
         # hint it can get, so it rides along with the description here only.
         category_text = description if supplier != "Amazon" else f"{description} {ebay_data.get('category_path') or ''}"
