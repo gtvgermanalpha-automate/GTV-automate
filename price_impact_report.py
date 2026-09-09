@@ -25,7 +25,7 @@ import fees  # noqa: E402
 import pricing  # noqa: E402
 from retry_utils import with_retry  # noqa: E402
 
-SHEET_NAME = "OnBuy_Feed_Master"
+SHEET_NAME = os.getenv("SHEET_NAME") or "OnBuy_Feed_Master"
 TABS = [t.strip() for t in (os.getenv("SHEET_TABS") or "Amazon").split(",") if t.strip()]
 OUT = "price_impact.csv"
 
