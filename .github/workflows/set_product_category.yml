@@ -1,0 +1,50 @@
+name: Set Product Category on OnBuy (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      skus:
+        description: "Comma-separated SKUs"
+        required: true
+      category:
+        description: "OnBuy category path exactly as in onbuy_categories_only.csv"
+        required: true
+      use_listings_opc:
+        description: "yes = look the OPC up in the live listings when the sheet/mirror have none"
+        required: false
+        default: "no"
+      dry_run:
+        description: "yes = report only"
+        required: false
+        default: "yes"
+
+# OnBuy-touching: queue behind the syncs, never overlap.
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  recategorise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Update category
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+          SKUS: ${{ inputs.skus }}
+          CATEGORY: ${{ inputs.category }}
+          USE_LISTINGS_OPC: ${{ inputs.use_listings_opc == 'yes' && '1' || '' }}
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+        run: python set_product_category.py

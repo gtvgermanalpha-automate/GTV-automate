@@ -920,6 +920,29 @@ def main():
 
     logger.info("Loaded %d OnBuy categories", len(onbuy_categories))
 
+    # Amazon rows: Amazon's own product-type code (Keepa "type": MONITOR,
+    # TELEVISION ...) names the product outright, so a hand-kept map from it
+    # to an OnBuy shelf decides before any word matching - the first pilot
+    # monitor landed in "Computer Monitor Mounts & Stands" because its
+    # description mentions the stand (2026-09-09). Only listable paths count.
+    amazon_type_map = {}
+    try:
+        with open("amazon_type_categories.csv", newline="", encoding="utf-8") as fh:
+            for _r in csv.DictReader(fh):
+                _t = (_r.get("Amazon Type") or "").strip().upper()
+                _p = (_r.get("OnBuy Category Path") or "").strip()
+                if _t and _p:
+                    amazon_type_map[_t] = _p
+    except FileNotFoundError:
+        pass
+
+    def amazon_type_category(amazon_type):
+        path = amazon_type_map.get(str(amazon_type or "").strip().upper())
+        if path and is_valid_onbuy_category(path):
+            logger.info("Category from Amazon type map %r -> %s", amazon_type, path)
+            return path
+        return ""
+
     valid_onbuy_categories = set(cat.strip().lower() for cat in onbuy_categories)
 
     def is_valid_onbuy_category(category):
@@ -1653,7 +1676,7 @@ def main():
             category = current_category
             category_needs_write = False
             if RECATEGORIZE_FROM_TYPE:
-                _by_type = type_category(
+                _by_type = (amazon_type_category(ebay_data.get("amazon_type")) if supplier == "Amazon" else "") or type_category(
                     (ebay_data.get("product_type") or "") if isinstance(ebay_data, dict) else "",
                     title, category_text)
                 if _by_type and _by_type != current_category:
@@ -1666,8 +1689,9 @@ def main():
             category_needs_write = _ok and category != current_category
             manual_unresolved = not _ok
         else:
-            category = map_onbuy_category(title, current_category, category_text,
-                                          (ebay_data.get("product_type") or "") if isinstance(ebay_data, dict) else "")
+            category = (amazon_type_category(ebay_data.get("amazon_type")) if supplier == "Amazon" else "") or \
+                map_onbuy_category(title, current_category, category_text,
+                                   (ebay_data.get("product_type") or "") if isinstance(ebay_data, dict) else "")
             category_needs_write = category != current_category
         category_id = category_id_by_path.get(category.strip().lower())
 

@@ -109,7 +109,10 @@ def test_normalize_gives_the_row_loop_shape():
     assert data["amazon_seller"] == "Amazon" and data["keepa_updated"] == "2025-07-28 03:20 UTC"
     assert "Bluetooth 5.3" in data["description"] and "Water resistant" in data["description"]
     assert data["condition"] == "New"
+    assert data["amazon_type"] == ""
     assert set(kc.empty_amazon_response()) <= set(data)
+    _a, typed = kc.normalize_product(_product(type="monitor", categoryTree=None), use_buybox=False)
+    assert typed["amazon_type"] == "MONITOR" and typed["product_type"] == "monitor"
 
 
 def test_unavailable_keeps_descriptive_fields_blank_but_reports_state():

@@ -108,6 +108,7 @@ def empty_amazon_response(asin=""):
         "keepa_updated": "",
         "eans": [],
         "category_path": "",
+        "amazon_type": "",
     }
 
 
@@ -221,6 +222,10 @@ def normalize_product(product, asin="", use_buybox=None):
         "eans": barcodes(product),
         "category_path": " > ".join(names),
         "product_type": names[-1] if names else str(product.get("type") or "").strip(),
+        # Amazon's own product-type code ("MONITOR", "TELEVISION"): the key
+        # of amazon_type_categories.csv, which decides the OnBuy category
+        # before any word matching runs.
+        "amazon_type": str(product.get("type") or "").strip().upper(),
     })
     if price <= 0:
         return False, data
