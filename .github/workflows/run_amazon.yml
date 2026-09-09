@@ -6,8 +6,10 @@ name: Amazon Sync (Keepa)
 # eBay rows are. Runs on the ODD hours - the eBay sync takes the even ones -
 # so each hour carries one pipeline's OnBuy pushes (240 calls/hour quota).
 on:
-  schedule:
-    - cron: "7 1-23/2 * * *"
+  # Schedule deliberately off until the pilot rows are confirmed live and
+  # correct on OnBuy - re-enable by uncommenting (odd hours, 07 past):
+  # schedule:
+  #   - cron: "7 1-23/2 * * *"
   workflow_dispatch:
     inputs:
       recategorize:
@@ -54,6 +56,7 @@ jobs:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
           KEEPA_API_KEY: ${{ secrets.KEEPA_API_KEY }}
           KEEPA_BUYBOX: ${{ vars.KEEPA_BUYBOX }}
+          KEEPA_UPDATE_HOURS: ${{ vars.KEEPA_UPDATE_HOURS }}
           AMAZON_DEFAULT_STOCK: ${{ vars.AMAZON_DEFAULT_STOCK }}
           # eBay credentials stay available for a mixed batch; an all-Amazon
           # batch never requests an eBay token.

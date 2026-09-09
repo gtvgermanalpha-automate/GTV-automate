@@ -40,6 +40,15 @@ DEFAULT_STOCK = int(os.getenv("AMAZON_DEFAULT_STOCK") or "5")
 # most rows for the base 1 token.
 USE_BUYBOX = (os.getenv("KEEPA_BUYBOX") or "").strip().lower() in ("1", "yes", "true")
 MAX_WAIT_FOR_TOKENS = int(os.getenv("KEEPA_MAX_WAIT_SECONDS") or "600")
+# Keepa's "update" parameter: refresh the product from Amazon if its copy is
+# older than this many hours. The documented default (1) still handed the
+# first probe a 22-hour-old product (2026-09-09), so the default here is 0 =
+# always fetch live - which costs 1 extra token only when Keepa's copy is
+# under an hour old, rare on a 2-hourly cadence. "off" leaves the parameter
+# out (Keepa's own 1-hour rule); a blank repo variable means the default.
+UPDATE_HOURS = (os.getenv("KEEPA_UPDATE_HOURS") or "0").strip().lower()
+if UPDATE_HOURS in ("off", "none"):
+    UPDATE_HOURS = ""
 
 # stats.current / csv price-type indexes (Keepa "Price Type indexing")
 IDX_AMAZON, IDX_NEW, IDX_COUNT_NEW, IDX_BUY_BOX_SHIPPING = 0, 1, 11, 18
@@ -269,7 +278,9 @@ class KeepaClient:
         out = {}
         for start in range(0, len(wanted), BATCH):
             chunk = wanted[start:start + BATCH]
-            self._wait_for_tokens(len(chunk) * (3 if self.use_buybox else 1))
+            # Worst case per product: 1, +2 with Buy Box detail, +1 when a live
+            # refresh is forced on a copy under an hour old.
+            self._wait_for_tokens(len(chunk) * ((3 if self.use_buybox else 1) + (1 if UPDATE_HOURS == "0" else 0)))
             params = {
                 "key": self.api_key,
                 "domain": self.domain,
@@ -279,6 +290,8 @@ class KeepaClient:
             }
             if self.use_buybox:
                 params["buybox"] = 1
+            if UPDATE_HOURS:
+                params["update"] = int(UPDATE_HOURS)
             body = self._request("product", params)
             for product in body.get("products") or []:
                 if isinstance(product, dict) and product.get("asin"):
