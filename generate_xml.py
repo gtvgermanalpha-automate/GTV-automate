@@ -20,6 +20,7 @@ import storage
 import supabase_db
 from onbuy_client import OnBuyClient
 import sku_aliases
+import keepa_client
 from retry_utils import AuthError, PermanentError, RateLimitError, TransientError, raise_for_status, with_retry
 from sanitize import sanitize_description, validate_images, strip_emojis
 
@@ -59,6 +60,13 @@ RUNS_PER_DAY = int(os.getenv("RUNS_PER_DAY") or "8")
 # Optional hard override: set this env var to force a fixed batch size
 # instead of the budget-derived one.
 _MAX_PRODUCTS_PER_RUN_OVERRIDE = os.getenv("MAX_PRODUCTS_PER_RUN")
+
+# Which worksheet to run: unset = the first tab (eBay rows, the original
+# pipeline); "Amazon" = the Amazon tab - same header row and downstream
+# steps, fetched through Keepa (keepa_client.py, 2026-09-09). Each tab has
+# its own workflow; FEED_FILE keeps their feed uploads apart.
+SHEET_TAB = (os.getenv("SHEET_TAB") or "").strip()
+FEED_FILE = (os.getenv("FEED_FILE") or "feed.xml").strip()
 
 # ================= PRICE CHECK FLAG THRESHOLDS =================
 # Total margin % over cost (the default formula gives ~40% = 20% fee + 20%
@@ -159,6 +167,17 @@ def should_push_to_onbuy(sku):
     if ONBUY_API_TEST_SKUS:
         return sku in ONBUY_API_TEST_SKUS
     return True
+
+
+def supplier_of(url):
+    """Which fetcher a Supplier URL belongs to - "eBay", "Amazon" (an
+    amazon.* link carrying an ASIN) or "" for anything else."""
+    u = str(url or "").strip().lower()
+    if "ebay." in u:
+        return "eBay"
+    if "amazon." in u and keepa_client.parse_asin(u):
+        return "Amazon"
+    return ""
 
 
 # ================= HELPERS =================
@@ -738,8 +757,10 @@ def main():
     client = gspread.authorize(creds)
     # Google's API throws intermittent 503s (5 crashed runs in the week of
     # 2026-08-18) - one retry cycle rides them out.
-    sheet = with_retry(lambda: client.open("OnBuy_Feed_Master").sheet1,
-                       what="sheet open", max_attempts=3)
+    spreadsheet = with_retry(lambda: client.open("OnBuy_Feed_Master"),
+                             what="sheet open", max_attempts=3)
+    sheet = spreadsheet.worksheet(SHEET_TAB) if SHEET_TAB else spreadsheet.sheet1
+    logger.info("Worksheet: %s", sheet.title)
 
     # Header hygiene BEFORE reading the data: one stray space typed into a
     # header cell ("SKU ") makes that whole column unreadable - row.get("SKU")
@@ -1420,13 +1441,13 @@ def main():
     # Filtering them out before the sort/slice means batch capacity is only
     # ever spent on rows that can actually make progress.
     processable = [(idx, row) for idx, row in enumerate(data)
-                   if "ebay." in str(row.get("Supplier URL", "")).strip().lower()
+                   if supplier_of(row.get("Supplier URL", ""))
                    and row_in_ranges(idx + 2)]
     if rows_ranges:
         logger.info("Targeted run: %d processable row(s) inside the requested range(s)", len(processable))
     skipped_incomplete = len(data) - len(processable)
     if skipped_incomplete:
-        logger.info("Skipping %d row(s) with no eBay Supplier URL yet (not counted against this run's batch)", skipped_incomplete)
+        logger.info("Skipping %d row(s) with no eBay/Amazon Supplier URL yet (not counted against this run's batch)", skipped_incomplete)
 
     # Manual runs pick ONLY unfilled rows (no Title yet) by default - the
     # Run button exists to onboard newly added products fast, not to
@@ -1464,8 +1485,12 @@ def main():
     logger.info("Processing %d products", min(len(sorted_data), MAX_PRODUCTS_PER_RUN))
 
     # ================= MAIN UPDATE LOOP =================
-    token = get_ebay_token()
-    if not token:
+    # An all-Amazon batch (the Amazon tab) never needs an eBay token; a
+    # missing token still aborts any batch that has eBay rows in it.
+    needs_ebay = any(supplier_of(row.get("Supplier URL")) == "eBay"
+                     for _, row in sorted_data[:MAX_PRODUCTS_PER_RUN])
+    token = get_ebay_token() if needs_ebay else None
+    if needs_ebay and not token:
         # Abort instead of proceeding to call every row with a bad/missing
         # token - the old code sent "Authorization: Bearer None" per row,
         # which zeroed price/stock for the entire batch on a single auth failure.
@@ -1516,20 +1541,66 @@ def main():
     skus_in_batch = [s for s in skus_in_batch if s]
     existing_fields = supabase_db.fetch_existing_fields(skus_in_batch)
 
+    # Amazon rows are fetched up front in one Keepa batch (100 ASINs per
+    # call, 1 token each); the loop reads from this map. A failed fetch
+    # leaves those rows untouched this run, like an eBay fetch failure.
+    amazon_products, amazon_fetch_failed, ebay_tab_skus = {}, False, set()
+    amazon_asins = sorted({keepa_client.parse_asin(row.get("Supplier URL"))
+                           for _, row in batch if supplier_of(row.get("Supplier URL")) == "Amazon"})
+    if amazon_asins:
+        try:
+            keepa = keepa_client.KeepaClient.from_env()
+        except PermanentError as exc:
+            logger.error("Keepa is not configured (%s) - aborting run without touching any rows", exc)
+            notify.send_alert_email(
+                "Keepa key missing - Amazon run aborted",
+                f"generate_xml.py ({sheet.title} tab) could not start the Keepa client: {exc}. "
+                "No sheet rows were touched. Add the KEEPA_API_KEY secret.")
+            sys.exit(1)
+        try:
+            amazon_products = keepa.fetch_products(amazon_asins)
+            logger.info("Keepa: %d of %d ASIN(s) answered, %d token(s) used, %s left",
+                        len(amazon_products), len(amazon_asins), keepa.tokens_consumed, keepa.tokens_left)
+        except (TransientError, PermanentError) as exc:
+            amazon_fetch_failed = True
+            run_had_errors = True
+            logger.error("Keepa fetch failed for %d ASIN(s) - Amazon rows left untouched this run: %s",
+                         len(amazon_asins), exc)
+        # One product per SKU across tabs: an Amazon row whose SKU already
+        # lives on the eBay tab would collide on OnBuy and in Supabase.
+        if SHEET_TAB:
+            try:
+                _first = spreadsheet.sheet1
+                _fh = [str(h).strip() for h in _first.row_values(1)]
+                if "SKU" in _fh and _first.title != sheet.title:
+                    ebay_tab_skus = {str(v).replace(",", "").strip()
+                                     for v in _first.col_values(_fh.index("SKU") + 1)[1:]}
+            except Exception as exc:  # noqa: BLE001 - advisory guard, never fatal
+                logger.warning("Could not read the eBay tab's SKUs for the cross-tab check: %s", str(exc)[:120])
+
     for idx, row in batch:
         i = idx + 2
         url = str(row.get("Supplier URL", "")).strip()
-
-        if "ebay." not in url.lower():
+        supplier = supplier_of(url)
+        if not supplier:
             continue
 
-        try:
-            available, ebay_data = get_ebay_data(url, token)
-        except (TransientError, PermanentError) as exc:
-            fetch_failures += 1
-            run_had_errors = True
-            logger.error("Row %d (%s): fetch failed after retries, leaving existing values untouched - %s", i, url, exc)
-            continue
+        # ebay_data keeps its historical name: it holds whichever supplier
+        # answered, in the shape empty_ebay_response() documents.
+        if supplier == "Amazon":
+            if amazon_fetch_failed:
+                fetch_failures += 1
+                continue
+            available, ebay_data = keepa_client.get_amazon_data(keepa_client.parse_asin(url), amazon_products)
+            ebay_data["brand"] = normalize_brand(ebay_data.get("brand") or "")
+        else:
+            try:
+                available, ebay_data = get_ebay_data(url, token)
+            except (TransientError, PermanentError) as exc:
+                fetch_failures += 1
+                run_had_errors = True
+                logger.error("Row %d (%s): fetch failed after retries, leaving existing values untouched - %s", i, url, exc)
+                continue
 
         stock = ebay_data["stock"]
         cost_price = ebay_data["price"]
@@ -1561,6 +1632,23 @@ def main():
             logger.warning("Row %d: no SKU provided (OnBuy requires a unique SKU per product) - skipping until one is added", i)
             continue
 
+        # Amazon-tab guards, flagged in Sync Status and never pushed: the
+        # SKU must be one of the product's own barcodes (Keepa lists them),
+        # and a SKU already used on the eBay tab is one product listed twice.
+        amazon_flag = ""
+        if supplier == "Amazon":
+            _digits = sku_numeric_part(sku)
+            if sku in ebay_tab_skus:
+                amazon_flag = "Failed: this SKU is already used on the eBay tab - one product per SKU"
+            elif available and ebay_data.get("eans") and _digits not in ebay_data["eans"]:
+                amazon_flag = (f"Failed: SKU {_digits or sku} is not one of this product's barcodes "
+                               f"({', '.join(ebay_data['eans'][:4])}) - correct the SKU")
+            if amazon_flag:
+                logger.warning("Row %d (SKU %s): %s", i, sku, amazon_flag)
+        # The categoriser reads text; Amazon's category tree is the best
+        # hint it can get, so it rides along with the description here only.
+        category_text = description if supplier != "Amazon" else f"{description} {ebay_data.get('category_path') or ''}"
+
         # ================= CATEGORY (re-checked here with fresh title/description so a
         # brand-new row gets categorized on this same pass, not just the upfront
         # full-catalog remap above, which ran before this row's eBay data existed) ====
@@ -1572,7 +1660,7 @@ def main():
             if RECATEGORIZE_FROM_TYPE:
                 _by_type = type_category(
                     (ebay_data.get("product_type") or "") if isinstance(ebay_data, dict) else "",
-                    title, description)
+                    title, category_text)
                 if _by_type and _by_type != current_category:
                     logger.info("Recategorized by eBay Type: %r -> %r", current_category, _by_type)
                     category = _by_type
@@ -1583,7 +1671,7 @@ def main():
             category_needs_write = _ok and category != current_category
             manual_unresolved = not _ok
         else:
-            category = map_onbuy_category(title, current_category, description,
+            category = map_onbuy_category(title, current_category, category_text,
                                           (ebay_data.get("product_type") or "") if isinstance(ebay_data, dict) else "")
             category_needs_write = category != current_category
         category_id = category_id_by_path.get(category.strip().lower())
@@ -1635,13 +1723,13 @@ def main():
         # seller's own barcode). eBay's own barcode is only a fallback for
         # rows whose SKU somehow has no digits.
         ean = sku_numeric_part(sku) or ebay_data.get("product_code") or ""
-        sync_status = None
+        sync_status = amazon_flag or None
         onbuy_product_created = None
         onbuy_listing_active = None
         onbuy_product_id = None
         last_onbuy_sync = None
 
-        if (sku and onbuy_ready and onbuy_halt_reason is None
+        if (sku and onbuy_ready and onbuy_halt_reason is None and not amazon_flag
                 and should_push_to_onbuy(sku) and onbuy_pushes_this_run < ONBUY_MAX_PUSHES_PER_RUN):
             existing = existing_fields.get(sku, {})
             # Supabase first, Sheet as fallback - the Sheet carries the same
@@ -1852,10 +1940,10 @@ def main():
                 logger.info("Row %d (SKU %s): create PAUSED (ONBUY_CREATE_ENABLED=false) - waiting", i, sku)
             except _SkipPushDead:
                 onbuy_skipped_dead += 1
-                sync_status = "Skipped: eBay listing unavailable - replace or remove the link"
+                sync_status = f"Skipped: {supplier} listing unavailable - replace or remove the link"
                 logger.info(
-                    "Row %d (SKU %s): eBay listing unavailable and never created on OnBuy "
-                    "- nothing to create, skipping the push", i, sku)
+                    "Row %d (SKU %s): %s listing unavailable and never created on OnBuy "
+                    "- nothing to create, skipping the push", i, sku, supplier)
             except (TransientError, AuthError, requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
                 # OnBuy-side or transport trouble (rate limit, 5xx after
                 # retries, expired token even after the client's one re-auth,
@@ -1981,6 +2069,12 @@ def main():
                                 "values": [[ebay_data.get("condition") or "New"]]})
         if "EAN" in col_map:
             row_updates.append({"range": f"{col_letter(col_map['EAN'])}{i}", "values": [[ean]]})
+        if supplier == "Amazon":
+            for _col, _key in (("ASIN", "asin"), ("Amazon Seller", "amazon_seller"),
+                               ("Amazon Availability", "amazon_availability"), ("Keepa Updated", "keepa_updated")):
+                if _col in col_map:
+                    row_updates.append({"range": f"{col_letter(col_map[_col])}{i}",
+                                        "values": [[str(ebay_data.get(_key) or "")]]})
         # OnBuy-provided tracking fields, written to the Sheet only if those
         # columns exist there and only when a push actually happened this run
         # - otherwise leaving them out preserves whatever was already there.
@@ -2015,7 +2109,7 @@ def main():
             "Category": category,
             "Category ID": str(category_id) if category_id is not None else None,
             "Supplier URL": url,
-            "Supplier": "eBay",
+            "Supplier": supplier,
             "Cost Price (£)": cost_price,
             "Shipping Cost (£)": str(shipping_cost) if shipping_cost else None,
             "Profit %": str(pricing.MIN_PROFIT_PERCENT),
@@ -2205,8 +2299,8 @@ def main():
         feed_bytes = ET.tostring(root, encoding="utf-8")
         logger.info("Feed over %d MB - descriptions shortened to 400 chars for the hosted copy (now %.1f MB)",
                     FEED_MAX_BYTES // (1024 * 1024), len(feed_bytes) / (1024 * 1024))
-    ET.ElementTree(root).write("feed.xml", encoding="utf-8", xml_declaration=True)
-    feed_url = storage.upload_feed()
+    ET.ElementTree(root).write(FEED_FILE, encoding="utf-8", xml_declaration=True)
+    feed_url = storage.upload_feed(local_path=FEED_FILE, remote_path=FEED_FILE)
 
     # ================= FINAL LOGS + ALERTS =================
     logger.info("DONE")
