@@ -1,0 +1,35 @@
+name: Probe OnBuy Commission (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      category_ids:
+        description: "Optional comma-separated category IDs to print in full (e.g. 3278,8679)"
+        required: false
+        default: ""
+
+# GET calls only, but it requests an OnBuy token - a fresh token supersedes
+# a running sync's, so it queues in the shared group like every API caller.
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Probe
+        env:
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+          CATEGORY_IDS: ${{ inputs.category_ids }}
+        run: python probe_commission.py
