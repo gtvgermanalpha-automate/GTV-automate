@@ -1,172 +1,114 @@
-"""READ-ONLY: dump a row range WITH the team's highlight colour, so a
-"look at the rows I marked" request can be answered against the exact
-rows, and score each description for the seller junk the sanitizer is
-supposed to remove - prices, shipping/returns policy, store menus and
-links, feedback pleas, cross-sell blocks. Also reports the image URLs
-so a "pictures never load on OnBuy" row can be checked in the same pass.
+"""READ-ONLY sheet inspector: prints what is ACTUALLY in a tab's cells.
 
-Writes dump_rows.csv. Touches nothing.
+Built 2026-09-11 while diagnosing rows whose four Amazon columns were
+filled although their Supplier URL cell was empty. WebFetch cannot see
+this Sheet (it fabricates - see CLAUDE.md), so any question about real
+cell contents gets answered by running this and reading the output.
+Writes nothing to the Sheet, Supabase or OnBuy; costs no Keepa tokens.
+
+SHEET_TAB picks the worksheet ("" = first tab). The whole-tab summary
+always prints; ROWS ("195-320" or "2-10,50") adds per-row detail lines.
 """
-import csv
 import json
 import os
-import re
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-SHEET_NAME = os.getenv("SHEET_NAME") or "OnBuy_Feed_Master"
-ROWS = os.getenv("ROWS") or ""
-RAW = os.getenv("RAW") or ""          # rows whose full description HTML to print
-SCAN_ALL = (os.getenv("SCAN_ALL") or "").strip().lower() in ("1", "true", "yes")
-OUT = "dump_rows.csv"
+import keepa_client
+from retry_utils import with_retry
 
-JUNK = [
-    ("price", re.compile(r"(£|GBP|\$)\s?\d|\d\s?(£|GBP)", re.I)),
-    ("shipping/returns", re.compile(r"\b(shipping|postage|dispatch(ed)?|deliver(y|ed)|returns?|refund)\b", re.I)),
-    ("store/menu", re.compile(r"\b(our (ebay )?store|store (home|categories|menu)|visit (our|us)|shop (now|categories)|about us|contact us|feedback|payment|terms)\b", re.I)),
-    ("link", re.compile(r"(https?://|www\.|<a\s|href=)", re.I)),
-    ("ebay word", re.compile(r"\bebay\b", re.I)),
-    ("cross-sell", re.compile(r"\b(you may (also )?like|similar (items|products)|related (items|products)|customers also|see also|more items)\b", re.I)),
-    ("branding/seller", re.compile(r"\b(powered by|frooition|inkfrog|crazylister|template by|©|copyright|all rights reserved)\b", re.I)),
-]
+SHEET_NAME = "OnBuy_Feed_Master"
+TAB = (os.getenv("SHEET_TAB") or "").strip()
+ROWS = (os.getenv("ROWS") or "").strip()
+# Shown per row, when the tab has the column. Supplier URL is also parsed
+# for its ASIN and cross-checked against the ASIN column - a mismatch means
+# the row's Keepa data was written from some OTHER row's product.
+SHOW = ["SKU", "Supplier URL", "ASIN", "Amazon Seller", "Amazon Availability",
+        "Keepa Updated", "Sync Status", "OnBuy Product Created", "Title"]
 
 
-def parse_rows(spec):
+def ranges(nums):
+    """[2,3,4,9] -> '2-4, 9'"""
+    nums = sorted(nums)
     out = []
-    for part in [p.strip() for p in spec.split(",") if p.strip()]:
-        if "-" in part:
-            a, b = part.split("-", 1)
-            out.extend(range(int(a), int(b) + 1))
-        else:
-            out.append(int(part))
-    return out
+    while nums:
+        a = b = nums.pop(0)
+        while nums and nums[0] == b + 1:
+            b = nums.pop(0)
+        out.append(f"{a}-{b}" if b > a else f"{a}")
+    return ", ".join(out) or "(none)"
 
 
-def rgb_hex(bg):
-    if not bg:
-        return ""
-    r = int(round(bg.get("red", 1) * 255)); g = int(round(bg.get("green", 1) * 255)); b = int(round(bg.get("blue", 1) * 255))
-    if (r, g, b) == (255, 255, 255):
-        return ""
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-
-def colour_name(h):
-    if not h:
-        return ""
-    r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
-    if g > r + 40 and g > b + 40:
-        return "green"
-    if r > g + 40 and r > b + 40:
-        return "red"
-    if r > 200 and g > 200 and b < 150:
-        return "yellow"
-    if r > 200 and 120 < g < 200 and b < 120:
-        return "orange/amber"
-    return "other"
+def row_selector(spec):
+    parts = []
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        a, _, b = part.partition("-")
+        lo, hi = int(a), int(b or a)
+        parts.append((min(lo, hi), max(lo, hi)))
+    return lambda n: any(lo <= n <= hi for lo, hi in parts)
 
 
 def main():
-    rows_wanted = parse_rows(ROWS)
-    if not rows_wanted:
-        raise SystemExit("ROWS required")
     creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    ss = client.open(SHEET_NAME)
-    sheet = ss.sheet1
-    values = sheet.get_all_values()
-    headers = [h.strip() for h in values[0]]
-    idx = {h.lower(): i for i, h in enumerate(headers)}
+    book = with_retry(lambda: gspread.authorize(creds).open(SHEET_NAME), what="sheet open", max_attempts=3)
+    tab = book.worksheet(TAB) if TAB else book.sheet1
+    values = tab.get_all_values()
+    headers = [str(h).strip() for h in values[0]] if values else []
+    idx = {h: i for i, h in enumerate(headers) if h}
 
-    def cell(row, name):
-        i = idx.get(name.lower())
-        return (row[i] if i is not None and i < len(row) else "").strip()
+    def cell(r, col):
+        i = idx.get(col)
+        return str(r[i]).strip() if i is not None and i < len(r) else ""
 
-    # background colour of column A for each wanted row (one metadata call)
-    lo, hi = min(rows_wanted), max(rows_wanted)
-    meta = ss.fetch_sheet_metadata(params={"includeGridData": True,
-                                           "ranges": [f"{sheet.title}!A{lo}:A{hi}"],
-                                           "fields": "sheets.data.rowData.values.effectiveFormat.backgroundColor"})
-    colours = {}
-    try:
-        rowdata = meta["sheets"][0]["data"][0].get("rowData", [])
-        for off, rd in enumerate(rowdata):
-            vals = rd.get("values") or [{}]
-            bg = (vals[0].get("effectiveFormat") or {}).get("backgroundColor")
-            colours[lo + off] = rgb_hex(bg)
-    except (KeyError, IndexError):
-        pass
+    data = values[1:]
+    print(f"Tab '{tab.title}': {len(data)} data rows, {len(headers)} header cells")
 
-    out_rows = []
-    for r in rows_wanted:
-        if r - 1 >= len(values):
+    with_url, without_url = [], []
+    for k, r in enumerate(data):
+        if not any(str(c).strip() for c in r):
+            continue  # fully blank trailing rows aren't rows
+        (with_url if cell(r, "Supplier URL") else without_url).append(k + 2)
+    print(f"Rows WITH a Supplier URL     : {len(with_url):4d}  ->  {ranges(with_url)}")
+    print(f"Rows WITHOUT (but not blank) : {len(without_url):4d}  ->  {ranges(without_url)}")
+
+    # Formula view of the URL column: an =HYPERLINK(...) or a reference to
+    # another sheet shows up here even when the displayed value is empty.
+    if "Supplier URL" in idx and data:
+        letter = gspread.utils.rowcol_to_a1(1, idx["Supplier URL"] + 1).rstrip("1")
+        formulas = tab.get(f"{letter}2:{letter}{len(data) + 1}", value_render_option="FORMULA")
+        odd = [k + 2 for k, v in enumerate(formulas) if str(v[0] if v else "").startswith("=")]
+        print(f"URL cells holding a FORMULA  : {ranges(odd) if odd else '(none - all plain values)'}")
+
+    if not ROWS:
+        print("\n(no ROWS given - summary only)")
+        return
+    wanted = row_selector(ROWS)
+    shown = [h for h in SHOW if h in idx]
+    print(f"\nPer-row detail for {ROWS}  (columns: {', '.join(shown)})")
+    for k, r in enumerate(data):
+        n = k + 2
+        if not wanted(n) or not any(str(c).strip() for c in r):
             continue
-        row = values[r - 1]
-        desc = cell(row, "Description")
-        text = re.sub(r"<[^>]+>", " ", desc)
-        hits = []
-        for label, rx in JUNK:
-            m = rx.search(text if label != "link" else desc)
-            if m:
-                s = max(0, m.start() - 40); e = min(len(text if label != "link" else desc), m.end() + 60)
-                snippet = re.sub(r"\s+", " ", (text if label != "link" else desc)[s:e]).strip()
-                hits.append(f"{label}: …{snippet}…")
-        imgs = [u.strip() for u in cell(row, "Additional Images").split(",") if u.strip()]
-        main_img = cell(row, "Image URL")
-        col = colours.get(r, "")
-        out_rows.append({
-            "row": r, "colour": colour_name(col) or col, "sku": cell(row, "SKU"),
-            "status": cell(row, "Sync Status")[:60], "opc": cell(row, "OPC"),
-            "checked": cell(row, "Last Checked Time"),
-            "title": cell(row, "Title")[:70],
-            "desc_len": len(desc), "desc_html_tags": len(re.findall(r"<[^>]+>", desc)),
-            "junk_hits": len(hits), "junk_detail": " || ".join(hits)[:900],
-            "main_image": main_img, "extra_images": len(imgs),
-            "image_hosts": ",".join(sorted({re.sub(r"^https?://([^/]+).*$", r"\1", u) for u in [main_img] + imgs if u})),
-            "image_exts": ",".join(sorted({(u.rsplit(".", 1)[-1][:5].lower() if "." in u.rsplit("/", 1)[-1] else "?") for u in [main_img] + imgs if u})),
-        })
-
-    with open(OUT, "w", newline="", encoding="utf-8-sig") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(out_rows[0].keys()))
-        w.writeheader(); w.writerows(out_rows)
-    print(f"rows dumped: {len(out_rows)} -> {OUT}")
-    for o in out_rows:
-        print(f"ROW {o['row']} [{o['colour'] or '-':>7}] {o['sku']:<14} {o['status'][:34]:<34} imgs={1 if o['main_image'] else 0}+{o['extra_images']} {o['image_exts']:<9} desc={o['desc_len']:>5} junk={o['junk_hits']}")
-        if o["junk_detail"]:
-            print(f"        {o['junk_detail'][:300]}")
-        if o["colour"] == "red":
-            print(f"        main image: {o['main_image'][:120]}")
-
-    for r in parse_rows(RAW):
-        if r - 1 < len(values):
-            d = cell(values[r - 1], "Description")
-            print(f"\n===== RAW DESCRIPTION row {r} ({len(d)} chars) =====")
-            print(d[:14000])
-            print("===== END =====")
-
-    if SCAN_ALL:
-        from collections import Counter
-        per_label, rows_hit, examples = Counter(), 0, []
-        for r in range(2, len(values) + 1):
-            d = cell(values[r - 1], "Description")
-            if not d:
-                continue
-            text = re.sub(r"<[^>]+>", " ", d)
-            labels = [lbl for lbl, rx in JUNK if rx.search(text if lbl != "link" else d)]
-            if labels:
-                rows_hit += 1
-                per_label.update(labels)
-                if len(examples) < 40:
-                    examples.append((r, cell(values[r - 1], "SKU"), ",".join(labels)))
-        filled = sum(1 for row in values[1:] if cell(row, "Description"))
-        print(f"\nSCAN_ALL: {rows_hit} of {filled} filled descriptions still carry seller junk")
-        for lbl, n in per_label.most_common():
-            print(f"    {lbl}: {n}")
-        for r, s, l in examples:
-            print(f"    row {r} {s} [{l}]")
+        parts = []
+        for h in shown:
+            v = cell(r, h)
+            if h == "Supplier URL":
+                link_asin = keepa_client.parse_asin(v)
+                stored = cell(r, "ASIN")
+                v = (v[:47] + "...") if len(v) > 50 else (v or "EMPTY")
+                if link_asin and stored and link_asin != stored:
+                    v += f" [link ASIN {link_asin} != ASIN column {stored} - MISALIGNED WRITE]"
+            elif h == "Title":
+                v = v[:30]
+            parts.append(f"{h}={v or '-'}")
+        print(f"row {n}: " + " | ".join(parts))
+    print("\nDone - nothing was written.")
 
 
 if __name__ == "__main__":

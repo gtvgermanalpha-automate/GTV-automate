@@ -1,19 +1,19 @@
-name: Dump Rows (read-only)
+name: Dump Sheet Rows (read-only)
 
 on:
   workflow_dispatch:
     inputs:
+      tab:
+        description: "Worksheet name (empty = first tab)"
+        required: false
+        default: "Amazon"
       rows:
-        description: "Row numbers/ranges, e.g. 5807-5845"
-        required: true
-      raw:
-        description: "Rows whose FULL description HTML to print"
+        description: "Rows for per-row detail, e.g. 195-320 (empty = summary only)"
         required: false
         default: ""
-      scan_all:
-        description: "Also scan every row for seller junk (yes/no)"
-        required: false
-        default: "no"
+
+# Reads the Google Sheet only - no OnBuy, no Keepa, no writes anywhere -
+# so it stays outside the onbuy-api group and is safe alongside any run.
 
 jobs:
   dump:
@@ -29,13 +29,6 @@ jobs:
       - name: Dump
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_TAB: ${{ inputs.tab }}
           ROWS: ${{ inputs.rows }}
-          RAW: ${{ inputs.raw }}
-          SCAN_ALL: ${{ inputs.scan_all }}
         run: python dump_rows.py
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dump-rows
-          path: dump_rows.csv
-          if-no-files-found: warn
