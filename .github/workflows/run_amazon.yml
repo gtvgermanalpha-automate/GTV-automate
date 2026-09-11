@@ -6,10 +6,8 @@ name: Amazon Sync (Keepa)
 # eBay rows are. Runs on the ODD hours - the eBay sync takes the even ones -
 # so each hour carries one pipeline's OnBuy pushes (240 calls/hour quota).
 on:
-  # Schedule deliberately off until the pilot rows are confirmed live and
-  # correct on OnBuy - re-enable by uncommenting (odd hours, 07 past):
-  # schedule:
-  #   - cron: "7 1-23/2 * * *"
+  schedule:
+    - cron: "7 1-23/2 * * *"   # odd hours - the eBay sync takes the even ones
   workflow_dispatch:
     inputs:
       recategorize:
