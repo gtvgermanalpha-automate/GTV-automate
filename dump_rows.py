@@ -25,7 +25,11 @@ ROWS = (os.getenv("ROWS") or "").strip()
 # for its ASIN and cross-checked against the ASIN column - a mismatch means
 # the row's Keepa data was written from some OTHER row's product.
 SHOW = ["SKU", "Supplier URL", "ASIN", "Amazon Seller", "Amazon Availability",
-        "Keepa Updated", "Sync Status", "OnBuy Product Created", "Title"]
+        "Keepa Updated", "Sync Status", "OnBuy Product Created", "Title",
+        # Price cells (2026-09-18 mispricing check): the Cost Price cell must
+        # hold the raw fetched supplier price - print it next to Selling so a
+        # stale or inflated basis is visible at a glance.
+        "Cost Price (£)", "Shipping Cost (£)", "Selling Price (£)", "Fee %", "Profit %"]
 
 
 def ranges(nums):
