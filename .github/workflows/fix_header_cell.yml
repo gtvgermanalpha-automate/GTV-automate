@@ -1,0 +1,39 @@
+name: Fix Header Cell (one-off)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tab:
+        description: "Worksheet (empty = first tab)"
+        required: false
+        default: ""
+      cell:
+        description: "Row-1 cell to fix, e.g. B1"
+        required: true
+      value:
+        description: "Exact header name to write"
+        required: true
+
+# Writes one sheet cell - serialize with the syncs like every sheet writer.
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Fix the header cell
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_TAB: ${{ inputs.tab }}
+          HEADER_CELL: ${{ inputs.cell }}
+          HEADER_VALUE: ${{ inputs.value }}
+        run: python fix_header_cell.py
