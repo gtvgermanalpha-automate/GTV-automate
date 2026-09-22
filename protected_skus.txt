@@ -31,3 +31,4 @@ Ebay-157617590047-5
 # submission carried the wrong content (not a platform fault); correct
 # content resubmitted (queue 6a9a6a0a8647ac7a4b0bc092) and verified on
 # scan 33860732684 as "HP 510 Ultra Mouse Black". Stock/price restored.
+653709952448  # 2026-09-22 source OOS on page, listing stayed in stock - held at 0 pending diagnosis
