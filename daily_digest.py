@@ -1,6 +1,7 @@
-"""Daily fleet digest (2026-08-06): one email summarizing the last 24h of
-every store's sync + backfill runs, sent through this repo's normal alert
-route. Replaces watching per-run alerts across seven Actions tabs.
+"""Fleet digest (2026-08-06; weekly since 2026-09-26): one email summarizing
+the digest window (DIGEST_WINDOW_HOURS, default the last 7 days) of every
+store's sync + backfill runs, sent through this repo's normal alert route.
+Replaces watching per-run alerts across the fleet's Actions tabs.
 
 Reads the GitHub Actions API for all seven store repos (FLEET_GITHUB_TOKEN)
 and parses each completed sync run's summary lines. A store that errors
@@ -57,13 +58,21 @@ def job_log(slug, run_id):
 
 
 def store_section(label, slug, since_iso):
-    runs = api(f"/repos/{slug}/actions/runs",
-               {"created": f">{since_iso}", "per_page": "100"}).get("workflow_runs", [])
+    # A week of runs per repo overflows one page - collect them all (a
+    # hard 10-page ceiling keeps a runaway repo from eating the API quota).
+    runs, page = [], 1
+    while True:
+        batch = api(f"/repos/{slug}/actions/runs",
+                    {"created": f">{since_iso}", "per_page": "100", "page": str(page)}).get("workflow_runs", [])
+        runs.extend(batch)
+        if len(batch) < 100 or page >= 10:
+            break
+        page += 1
     syncs = [r for r in runs if r.get("path", "").endswith(SYNC_WF)]
     backfills = [r for r in runs if r.get("path", "").endswith(BACKFILL_WF)]
 
     if not syncs and not backfills:
-        return f"{label}: no runs in the last 24h (paused or schedule dropped)."
+        return f"{label}: no runs in this digest window (paused or schedule dropped)."
 
     done_syncs = [r for r in syncs if r["status"] == "completed"]
     green = sum(1 for r in done_syncs if r["conclusion"] == "success")
@@ -112,7 +121,8 @@ def store_section(label, slug, since_iso):
 
 def main():
     now = datetime.now(timezone.utc)
-    since_iso = (now - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    window_h = int(os.getenv("DIGEST_WINDOW_HOURS") or "168")
+    since_iso = (now - timedelta(hours=window_h)).strftime("%Y-%m-%dT%H:%M:%SZ")
     today = datetime.now(PK_TZ).strftime("%A %d %B %Y")
 
     sections = []
@@ -122,7 +132,8 @@ def main():
         except Exception as exc:  # one broken store must not sink the digest
             sections.append(f"{label}: digest collection FAILED - {exc}")
 
-    body = (f"Fleet digest for the 24h up to {datetime.now(PK_TZ).strftime('%H:%M')} PKT, "
+    span = f"{window_h // 24} day(s)" if window_h % 24 == 0 else f"{window_h}h"
+    body = (f"Fleet digest for the {span} up to {datetime.now(PK_TZ).strftime('%H:%M')} PKT, "
             f"{today}.\n\n" + "\n\n".join(sections) +
             "\n\nRed runs need a look; everything else is routine. "
             "Counts come from each run's own summary line.")
@@ -132,7 +143,7 @@ def main():
     # rather than sending the digest into a logged-but-green void.
     if not (os.getenv("SMTP_USER") and os.getenv("SMTP_APP_PASSWORD")):
         raise SystemExit("SMTP_USER/SMTP_APP_PASSWORD not configured - digest not sent")
-    notify.send_alert_email(f"Daily fleet digest - {today}", body)
+    notify.send_alert_email(f"Weekly fleet digest - {today}", body)
 
 
 if __name__ == "__main__":

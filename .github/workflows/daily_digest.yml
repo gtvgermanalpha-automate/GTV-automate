@@ -1,8 +1,8 @@
-name: Daily Fleet Digest
+name: Weekly Fleet Digest
 
 on:
   schedule:
-    - cron: "0 13 * * *"   # 18:00 Pakistan time - end-of-day summary of all seven stores
+    - cron: "0 13 * * 0"   # Sunday 18:00 Pakistan time - one weekly summary of every store (user 2026-09-26)
   workflow_dispatch:
 
 jobs:
