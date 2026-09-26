@@ -318,7 +318,7 @@ def _formula_priced(price, cost, ship, fee_rule, profit_override=None, fee_overr
         candidates.append(pricing.calculate_selling_price(cost, ship, fee_rule=fee_rule))
     # Prices set under a band schedule that has since changed (e.g. the
     # above-GBP-100 profit cut, 2026-09-11) are still the automation's own.
-    for _legacy in pricing.legacy_profit_percents(total):
+    for _legacy in pricing.legacy_profit_percents(total, rule=fee_rule):
         candidates.append(pricing.price_for_profit(total, _legacy, platform_fee_percent=pricing.PLATFORM_FEE_PERCENT))
         if fee_rule is not None:
             candidates.append(pricing.price_for_profit(total, _legacy, rule=fee_rule))
@@ -2027,10 +2027,17 @@ def main():
         # Fee % / Profit % cells: normally the automation's own report, but
         # a different number typed there is a per-row override - it drives
         # the formula and is never overwritten (resolve_pct_cell).
-        _band_now = pricing.profit_percent(_total_cost) if cost_price > 0 else None
+        _band_now = pricing.profit_percent_for(_total_cost, rule=fee_rule) if cost_price > 0 else None
         _prev_total = _to_float(_prev.get("Cost Price (£)")) + _to_float(_prev.get("Shipping Cost (£)"))
-        _band_prev = pricing.profit_percent(_prev_total) if _prev_total > 0 else None
-        profit_override = resolve_pct_cell(row.get("Profit %"), [_band_now, _band_prev],
+        _band_prev = pricing.profit_percent_for(_prev_total, rule=fee_rule) if _prev_total > 0 else None
+        # The displaced cost-band values stay in the auto list: a Profit %
+        # cell the automation wrote BEFORE the selling-price override (e.g.
+        # "40") must not be misread as a manual override, or the row would
+        # freeze at the old profit forever.
+        _base_now = pricing.profit_percent(_total_cost) if cost_price > 0 else None
+        _base_prev = pricing.profit_percent(_prev_total) if _prev_total > 0 else None
+        profit_override = resolve_pct_cell(row.get("Profit %"),
+                                           [_band_now, _band_prev, _base_now, _base_prev],
                                            _prev.get("Profit %"), hi=500)
         _fee_auto = ([fee_rule.lower_pct, fee_rule.upper_pct] if fee_rule is not None
                      else [float(pricing.PLATFORM_FEE_PERCENT)])
@@ -2062,7 +2069,7 @@ def main():
                                              _to_float(_prev.get("Shipping Cost (£)")), fee_rule,
                                              profit_override, fee_override))
         _reprice_basis = (fee_rule is not None or profit_override is not None or fee_override is not None
-                          or bool(pricing.legacy_profit_percents(_total_cost)))
+                          or bool(pricing.legacy_profit_percents(_total_cost, rule=fee_rule)))
         if supplier == "Amazon" and formula_price > 0:
             # Amazon rows always re-derive from the CURRENT fetched cost
             # - down as well as up (user policy 2026-09-18). The tab is
