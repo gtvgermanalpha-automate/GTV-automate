@@ -23,15 +23,12 @@ HEADERS = {"Authorization": f"Bearer {TOKEN}", "User-Agent": "fleet-digest",
            "Accept": "application/vnd.github+json"}
 API = "https://api.github.com"
 
-# (label, owner/repo, tier).
+# (label, owner/repo, tier). Semi tier retired 2026-09-26 - full stores only.
 STORES = [
     ("GTV (main)", "gtvgermanalpha-automate/GTV-automate", "full"),
     ("OpenMaal Full", "csopmaal-auto/openmaal-full-automate", "full"),
     ("YRA Full", "yraglobalalpha-automate/yra-full-automate", "full"),
-    ("Arden", "arden-auto/arden-onbuy-auto", "semi"),
     ("Arden Full", "arden-auto/arden-full-automate", "full"),
-    ("GTV Semi", "gtvgermanalpha-automate/GTV-semi-automate", "semi"),
-    ("YRA Semi", "yraglobalalpha-automate/yra-global-onbuy-sync", "semi"),
     ("Makstore Full", "makstore-auto/makstore-automate", "full"),
 ]
 SYNC_WF = "run.yml"
