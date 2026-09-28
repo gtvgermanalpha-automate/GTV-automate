@@ -29,7 +29,10 @@ PRICE_CASES = [
     # (kwargs, expected price at the flat fallback fee 20% + the 1.5-point
     # uplift (2026-09-17: OnBuy deducts above the nominal rate) = /0.785
     (dict(cost_price=3.0), 7.64, "GBP 3 -> 100% profit / 0.785"),
-    (dict(cost_price=8.0), 18.34, "GBP 8 -> 80% profit / 0.785"),
+    # The 10-20 selling-price override (2026-09-26): base-schedule prices
+    # inside that window sell at 15% instead of the cost band's value.
+    (dict(cost_price=8.0), 11.72, "GBP 8 -> base 18.34 in the window -> 15% override"),
+    (dict(cost_price=4.4), 6.45, "GBP 4.4 -> base 11.21 in the window -> 15% override"),
     (dict(cost_price=20.0), 35.67, "GBP 20 -> 40% profit / 0.785"),
     (dict(cost_price=28.0, shipping_cost=4.0), 57.07, "28+4 ship = 32 total"),
     (dict(cost_price=45.0, shipping_cost=5.0), 89.17, "45+5 = 50 total -> still the 40% range"),
@@ -53,7 +56,7 @@ def test_fee_comes_out_of_the_selling_price():
     for base in (3.0, 8.0, 20.0, 60.0, 150.0, 400.0):
         sell = pricing.calculate_selling_price(base)
         retained = sell * (1 - (pricing.PLATFORM_FEE_PERCENT + pricing.FEE_UPLIFT_PERCENT) / 100)
-        expected = base * (1 + pricing.profit_percent(base) / 100)
+        expected = base * (1 + pricing.profit_percent_for(base) / 100)
         assert abs(retained - expected) < 0.02, (
             f"cost {base}: retained {retained:.2f} != {expected:.2f}")
 
@@ -86,9 +89,14 @@ def test_legacy_profit_percents_expose_only_changed_ranges():
     assert pricing.legacy_profit_percents(100.0) == [40]
     assert pricing.legacy_profit_percents(3.0) == [80]
     # Ranges that kept their value offer no legacy - and never the current one.
-    assert pricing.legacy_profit_percents(7.5) == []
+    # (9.5 is the 80% band ABOVE the 10-20 selling window: base price 21.78.)
+    assert pricing.legacy_profit_percents(9.5) == []
     assert pricing.legacy_profit_percents(20.0) == []
     assert pricing.legacy_profit_percents(0) == []
+    # The 10-20 selling-price override (2026-09-26) displaces the cost
+    # band's own value; it must stay recognisable so old 80%-era prices
+    # follow the override down.
+    assert pricing.legacy_profit_percents(7.5) == [80]
 
 
 def test_absurd_fee_is_clamped_not_divided_by_zero():
