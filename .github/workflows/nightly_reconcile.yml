@@ -9,13 +9,12 @@ name: Nightly Reconcile (content + price + orphans)
 # window). Morning evidence lives in this run's log + alert emails.
 
 on:
+  # No schedule since 2026-09-29 (user-approved): a standalone pending run
+  # was queue-bumped four nights out of five by GTV's dense cron traffic.
+  # The nightly now rides inside backfill_onbuy_status.yml (the backfill
+  # executing in the 02:00-02:59 UTC window runs the reconcile steps).
+  # This workflow stays for one-off manual dispatches.
   workflow_dispatch:
-  schedule:
-    # Moved from 02:10 (2026-09-28): with GitHub's ~5h drift it fired at
-    # ~07:30-08:00, straight into the feed+backfill+Amazon cron cluster,
-    # and the pending run was bumped off the group's one slot three nights
-    # out of four. 21:10 drifts to ~02:00-03:00, the quietest stretch.
-    - cron: "10 21 * * *"
 
 concurrency:
   group: onbuy-api
