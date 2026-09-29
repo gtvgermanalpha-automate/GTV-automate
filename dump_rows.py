@@ -29,7 +29,10 @@ SHOW = ["SKU", "Supplier URL", "ASIN", "Amazon Seller", "Amazon Availability",
         # Price cells (2026-09-18 mispricing check): the Cost Price cell must
         # hold the raw fetched supplier price - print it next to Selling so a
         # stale or inflated basis is visible at a glance.
-        "Cost Price (£)", "Shipping Cost (£)", "Selling Price (£)", "Fee %", "Profit %"]
+        "Cost Price (£)", "Shipping Cost (£)", "Selling Price (£)", "Fee %", "Profit %",
+        # Image cells (2026-09-29): OnBuy's 404 diagnosis for the stuck-loading
+        # batch is "no images on the system" - print what the create sent.
+        "Image URL", "Additional Images"]
 
 
 def ranges(nums):
