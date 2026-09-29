@@ -47,14 +47,22 @@ jobs:
       # ========== Nightly reconcile, embedded (2026-09-29, user-approved) =====
       # The standalone nightly's pending run was queue-bumped four nights
       # out of five: GitHub keeps ONE pending slot per concurrency group
-      # and GTV's dense cron traffic always steals it. The hourly backfill
-      # wins a slot every hour, so the backfill executing in the
-      # 02:00-02:59 UTC window carries the reconcile steps with it.
+      # and GTV's cron traffic always steals it. A fixed-hour gate does
+      # not work either - GitHub delivers this "hourly" backfill only
+      # 4-5 times a day at drifting hours (observed 15:23/21:57/01:54).
+      # So: the FIRST backfill created each UTC day runs the reconcile
+      # steps - guaranteed once per day at whatever hour that lands.
       # nightly_reconcile.yml stays dispatchable for one-off runs.
-      - name: Nightly window gate
+      - name: Nightly latch gate (first backfill of the UTC day)
         if: ${{ !cancelled() }}
         id: gate
-        run: echo "go=$([ "$(date -u +%H)" = "02" ] && echo 1 || echo 0)" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          prior=$(gh api "repos/${{ github.repository }}/actions/workflows/backfill_onbuy_status.yml/runs?created=${today}T00:00:00Z..${today}T23:59:59Z&per_page=100" --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})] | length" 2>/dev/null || echo error)
+          echo "prior backfill runs created today: $prior"
+          if [ "$prior" = "0" ]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "go=0" >> "$GITHUB_OUTPUT"; fi
       - name: Scan first tab (content + orphans, report)
         if: ${{ !cancelled() && steps.gate.outputs.go == '1' }}
         env:
