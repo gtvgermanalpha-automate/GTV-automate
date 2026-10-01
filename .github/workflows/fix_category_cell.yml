@@ -1,0 +1,37 @@
+name: Fix One Category Cell (one-off, SKU-confirmed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tab:
+        description: "Worksheet name"
+        required: true
+      row:
+        description: "Row number"
+        required: true
+      expected_sku:
+        description: "SKU that must be in this row (abort if it doesn't match)"
+        required: true
+      category:
+        description: "New Category cell value (full OnBuy path)"
+        required: true
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Fix category cell
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_TAB: ${{ inputs.tab }}
+          TARGET_ROW: ${{ inputs.row }}
+          EXPECTED_SKU: ${{ inputs.expected_sku }}
+          NEW_CATEGORY: ${{ inputs.category }}
+        run: python fix_category_cell.py
