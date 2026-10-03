@@ -7,6 +7,7 @@ tab and the Amazon tab; leading zeros ignored - spreadsheet pastes drop them) an
   ticket_image_links.csv   OPC, SKU, Main image link, Additional image links  (the shape of the 2026-09-29 file)
   reference.csv            SKU, Tab, Row, OPC, Sync Status, OnBuy Product Created, Product URL, Title
   no_opc.csv               SKUs on the sheet without a real OPC yet (nothing to hand OnBuy)
+  all_found_images.csv     every found row with its images (also those without an OPC - to pair with an OnBuy lookup)
   not_on_sheet.txt         SKUs that are not on the sheet any more / at all
   duplicates.csv           SKUs found on more than one row (both rows listed in reference.csv)
 
@@ -97,6 +98,9 @@ def main():
     write("reference.csv", ["SKU", "Tab", "Row", "OPC", "Sync Status", "OnBuy Product Created", "Product URL", "Title"], reference)
     write("no_opc.csv", ["SKU", "Tab", "Row", "OPC", "Sync Status", "Title"], no_opc)
     write("duplicates.csv", ["SKU", "Found at"], dups)
+    write("all_found_images.csv", ["SKU", "Tab", "Row", "OPC", "Sync Status", "Main image link", "Additional image links"],
+          [[r["sku"], r["tab"], r["row"], r["opc"], r["status"], r["main"], r["extra"]]
+           for key in want for r in found.get(key, [])])
     with open(os.path.join(OUT_DIR, "not_on_sheet.txt"), "w", encoding="utf-8") as fh:
         fh.write("\n".join(missing) + ("\n" if missing else ""))
 
