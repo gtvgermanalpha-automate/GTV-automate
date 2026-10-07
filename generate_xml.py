@@ -459,6 +459,24 @@ def _misread_fee_priced(price, cost, ship, fee_cell, profit_override=None, fee_r
                for p in profits)
 
 
+def _pct_text(value):
+    """A percentage as the sheet shows it: two decimals ("20.00"), more only where the value needs them."""
+    whole, _, frac = f"{value:.6f}".rstrip("0").partition(".")
+    return f"{whole}.{frac.ljust(2, '0')}"
+
+
+def _shown_profit(price, total_cost, fee_rule, fee_override):
+    """The Profit % to show for a price above the formula (user 2026-10-07): the profit that price REALLY earns after
+    OnBuy's commission, to as many decimals as it takes for the cell to price back to exactly that price (two
+    normally) - so even a cell that were ever read as a typed override would reproduce the price to the penny."""
+    exact = pricing.effective_profit_percent(price, total_cost, fee_rule, platform_fee_percent=fee_override)
+    for digits in (2, 3, 4, 5, 6):
+        shown = round(exact, digits)
+        if abs(pricing.price_for_profit(total_cost, shown, rule=fee_rule, platform_fee_percent=fee_override) - price) < 0.005:
+            return shown
+    return round(exact, 6)
+
+
 def _cell_number(value):
     """A sheet cell as a number ("89.99", "£89.99", "1,250.50", "89,99", 89.99), or None when it is blank or not a number."""
     if isinstance(value, bool):
@@ -540,7 +558,7 @@ def decide_price(*, supplier, cost_price, shipping_cost, fee_rule, existing_pric
     "follows" = a price the automation set followed the formula DOWN, "kept" =
     max(existing, formula), "manual" = an Amazon row whose price a person raised
     above the formula, kept) and misread (the existing price came from the Fee %
-    misread of 2026-09-17..10-02). sheet_cost / sheet_ship are the row's own Cost /
+    misread of 2026-09-17..10-02), and profit_shown (the Profit % to write). sheet_cost / sheet_ship are the row's own Cost /
     Shipping cells (written in the same batch as the price, so they name the cost
     the price was set at even when the mirror is missing); prev_fee_rule is the
     rule of the category the mirror last saw (a price set before a recategorisation)."""
@@ -617,8 +635,18 @@ def decide_price(*, supplier, cost_price, shipping_cost, fee_rule, existing_pric
         how, selling_price = "follows", formula_price
     else:
         how, selling_price = "kept", max(existing_price, formula_price)
+    # What the Profit % cell and the mirror show (None = leave the cell alone: a typed override stays exactly as typed,
+    # a row without a cost has nothing to show): the band's profit while the row is priced by the formula, the profit
+    # the price REALLY earns after OnBuy's commission once it sits above the formula. The mirror stores it too, which
+    # is how the next run knows the cell is the automation's own and not a typed override.
+    profit_shown = None
+    if profit_override is None and cost_price > 0:
+        profit_shown = band_now
+        if selling_price > formula_price + 0.011:
+            profit_shown = _shown_profit(selling_price, total_cost, fee_rule, fee_override)
     return {"band_now": band_now, "profit_override": profit_override, "fee_override": fee_override,
-            "formula_price": formula_price, "selling_price": selling_price, "how": how, "misread": misread}
+            "formula_price": formula_price, "selling_price": selling_price, "how": how, "misread": misread,
+            "profit_shown": profit_shown}
 
 
 def _shipping_value(cell):
@@ -2938,9 +2966,10 @@ def main():
                           else pricing.effective_rate(fee_rule.lower_pct if fee_rule else float(pricing.PLATFORM_FEE_PERCENT)))
             row_updates.append({"range": f"{col_letter(col_map['Fee %'])}{i}",
                                 "values": [[f"{_fee_shown:.2f}"]]})
-        if "Profit %" in col_map and profit_override is None and _band_now is not None:
+        _profit_shown = _price["profit_shown"]
+        if "Profit %" in col_map and profit_override is None and _profit_shown is not None:
             row_updates.append({"range": f"{col_letter(col_map['Profit %'])}{i}",
-                                "values": [[f"{(_band_now or 0):.2f}"]]})
+                                "values": [[_pct_text(_profit_shown)]]})
         # eBay's stated delivery fee goes into the Shipping Cost (£) cell (shipping_cell_update decides: a number for
         # a stated fee, nothing for free delivery on a blank cell; shadow mode only counts it).
         _ship_write = shipping_cell_update(_quote, row.get("Shipping Cost (£)"))
@@ -3008,7 +3037,7 @@ def main():
             # integer-typed in Postgres ("0.00" bounced the whole 375-row
             # upsert with 22P02 on the first category run), so send whole
             # numbers - the sheet keeps the 2-decimal display.
-            "Profit %": str(int(round(_band_now or 0))),
+            "Profit %": str(int(round(_profit_shown if _profit_shown is not None else (_band_now or 0)))),
             "Fee %": str(int(round(pricing.effective_fee_percent(selling_price, fee_rule)
                                    if selling_price > 0 else
                                    pricing.effective_rate(fee_rule.lower_pct if fee_rule else pricing.PLATFORM_FEE_PERCENT)))),

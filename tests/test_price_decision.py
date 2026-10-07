@@ -33,7 +33,8 @@ import pricing  # noqa: E402
 SRC = ROOT / "generate_xml.py"
 NAMES = ("_to_float", "_formula_priced", "_pct_value", "resolve_pct_cell", "_fee_cell_auto_values",
          "_misread_fee_priced", "decide_price", "_shipping_value", "ebay_shipping_cost", "_quantile",
-         "shipping_cell_update", "_cell_number", "_cells_differ", "drop_edited_cells")
+         "shipping_cell_update", "_cell_number", "_cells_differ", "drop_edited_cells",
+         "_pct_text", "_shown_profit")
 
 
 def _load():
@@ -249,7 +250,10 @@ def test_the_flat_fallback_display_on_a_categorised_row_is_not_an_override():
 
 def test_the_sync_no_longer_writes_a_zero_profit_for_a_row_without_a_cost():
     text = SRC.read_text(encoding="utf-8")
-    assert 'if "Profit %" in col_map and profit_override is None and _band_now is not None:' in text
+    # a row without a cost has no profit to show: decide_price answers None and the loop writes nothing
+    assert 'if "Profit %" in col_map and profit_override is None and _profit_shown is not None:' in text
+    d = decide(0.0, RULE15, 42.0, "")
+    assert d["profit_shown"] is None
 
 
 # ---------------------------------------------------------------- 2026-10-03: superseded profits are the automation's own
@@ -633,3 +637,137 @@ def test_every_path_that_never_misread_prices_exactly_as_before():
         assert new["misread"] is False
         compared += 1
     assert compared == 4000
+
+
+# ---------------------------------------------------------------- 2026-10-07: the Profit % cell shows what the price REALLY earns
+@pytest.mark.parametrize("value,text", [(20.0, "20.00"), (15, "15.00"), (34.19, "34.19"), (34.1931, "34.1931"), (100.5, "100.50"),
+                                        (0.0, "0.00"), (7.123456, "7.123456"), (130.0, "130.00")])
+def test_pct_text_keeps_two_decimals_and_only_adds_more_when_needed(value, text):
+    assert NS["_pct_text"](value) == text
+
+
+def _profit_earned(price, cost, rule, ship=0.0):
+    """What the price leaves after OnBuy's commission (VAT included), as a share of the cost base."""
+    return ((price - pricing.fee_amount(price, rule)) / (cost + ship) - 1) * 100
+
+
+def test_effective_profit_is_the_inverse_of_the_price_formula():
+    rng = random.Random(20261007)
+    rules = [None, RULE7, RULE15, RULE20, TIERED]
+    for _ in range(2000):
+        rule = rng.choice(rules)
+        total = round(rng.uniform(0.5, 400), 2)
+        profit = rng.choice([15, 20, 40, 80, 100, 34.5, 150])
+        price = pricing.price_for_profit(total, profit, rule=rule)
+        # the price is rounded to the penny, so the profit it earns is the asked one within that rounding
+        assert pricing.effective_profit_percent(price, total, rule) == pytest.approx(profit, abs=0.006 / total * 100 + 1e-6)
+    assert pricing.effective_profit_percent(0, 10) == 0.0 and pricing.effective_profit_percent(10, 0) == 0.0
+
+
+def test_the_real_row_shows_its_real_profit():
+    # SKU 294148259721 (GTV Amazon): cost 54.99, a person's 89.99 against the 80.47 formula, the 15% category (18% with VAT)
+    hand = 89.99
+    d = decide(AMAZON_COST, RULE15, hand, shown(hand, RULE15), "20.00", supplier="Amazon", prev={"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": "20"})
+    assert d["how"] == "manual" and d["selling_price"] == hand
+    assert d["profit_shown"] == pytest.approx(34.19, abs=0.005)             # (89.99 - 16.20) / 54.99 - 1
+    assert d["profit_shown"] == pytest.approx(_profit_earned(hand, AMAZON_COST, RULE15), abs=0.005)
+    assert NS["_pct_text"](d["profit_shown"]) == "34.19"
+
+
+def test_a_row_priced_by_the_formula_still_shows_its_band():
+    cost = 20.0
+    price = pricing.price_for_profit(cost, band_of(cost, RULE15), rule=RULE15)
+    for supplier in ("eBay", "Amazon"):
+        d = decide(cost, RULE15, price, shown(price, RULE15), "40.00", supplier=supplier, prev={"Cost Price (£)": cost, "Profit %": "40", "Fee %": "18"})
+        assert d["profit_shown"] == band_of(cost, RULE15) == d["band_now"]
+    # a price a cent over the formula (rounding) is not "above" it
+    near = decide(cost, RULE15, price + 0.01, "18.00", "40.00", prev={"Cost Price (£)": cost, "Profit %": "40", "Fee %": "18"})
+    assert near["profit_shown"] == band_of(cost, RULE15)
+
+
+def test_the_ebay_tab_shows_the_real_profit_of_a_price_kept_above_the_formula_too():
+    cost = 20.0
+    formula = pricing.price_for_profit(cost, band_of(cost, RULE15), rule=RULE15)
+    hand = round(formula * 1.3, 2)
+    d = decide(cost, RULE15, hand, shown(hand, RULE15), "40.00", prev={"Cost Price (£)": cost, "Profit %": "40", "Fee %": "18"})
+    assert d["how"] == "kept" and d["selling_price"] == hand
+    assert d["profit_shown"] == pytest.approx(_profit_earned(hand, cost, RULE15), abs=0.005) and d["profit_shown"] > band_of(cost, RULE15)
+
+
+def test_a_typed_profit_override_stays_exactly_as_typed_and_nothing_is_shown_over_it():
+    cost = 20.0
+    d = decide(cost, RULE15, 0.0, "", "55", prev={"Profit %": "40", "Fee %": "18"})
+    assert d["profit_override"] == 55.0 and d["profit_shown"] is None
+
+
+def test_the_shown_profit_is_the_automations_own_through_the_mirror_and_a_typed_override_that_equals_it_is_still_an_override():
+    hand = 89.99
+    mirror = {"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": "34"}              # what the last run stored: the shown profit, whole
+    shown_cell = NS["_pct_text"](decide(AMAZON_COST, RULE15, hand, "18.00", "20.00", supplier="Amazon", prev={"Cost Price (£)": AMAZON_COST})["profit_shown"])
+    d = decide(AMAZON_COST, RULE15, hand, "18.00", shown_cell, supplier="Amazon", prev=mirror)
+    assert d["profit_override"] is None and d["how"] == "manual" and d["selling_price"] == hand       # the cell it wrote is not an override
+    # ...but a person typing a profit while the mirror still holds the band (it never stores overrides) IS an override, even
+    # when the number equals the profit the price earns - a typed profit drives the price, whatever the cell shows
+    cost = 20.0
+    typed = 55.0
+    at_typed = pricing.price_for_profit(cost, typed, rule=RULE15)
+    ov = decide(cost, RULE15, at_typed, "18.00", "55", prev={"Cost Price (£)": cost, "Profit %": str(int(band_of(cost, RULE15))), "Fee %": "18"})
+    assert ov["profit_override"] == 55.0 and ov["profit_shown"] is None
+    cheaper = decide(cost * 0.9, RULE15, at_typed, "18.00", "55", prev={"Cost Price (£)": cost, "Profit %": str(int(band_of(cost, RULE15))), "Fee %": "18"})
+    assert cheaper["profit_override"] == 55.0
+    assert cheaper["selling_price"] == pricing.price_for_profit(cost * 0.9, 55, rule=RULE15) < at_typed        # follows the cost down with its profit
+
+
+def test_the_shown_profit_prices_back_to_the_same_penny_even_if_it_were_read_as_an_override():
+    # the mirror failed to store it: the cell then reads as a typed override of that profit - the price must not move by a cent
+    rng = random.Random(7)
+    for _ in range(1500):
+        rule = rng.choice([None, RULE7, RULE15, RULE20, TIERED])
+        cost = round(rng.choice([rng.uniform(0.5, 12), rng.uniform(12, 60), rng.uniform(60, 400)]), 2)
+        formula = pricing.price_for_profit(cost, band_of(cost, rule), rule=rule)
+        hand = round(formula * rng.uniform(1.02, 2.2) + rng.choice([0, 0.01, 0.37]), 2)
+        profit = NS["_shown_profit"](hand, cost, rule, None)
+        assert pricing.price_for_profit(cost, profit, rule=rule) == hand, (cost, rule, hand, profit)
+        assert abs(profit - _profit_earned(hand, cost, rule)) < 0.01 + 6 * 10 ** -6 or abs(profit - _profit_earned(hand, cost, rule)) < 0.0051 / cost * 100
+
+
+def test_a_fee_override_is_used_for_the_shown_profit_too():
+    cost = 20.0
+    formula = pricing.price_for_profit(cost, band_of(cost, RULE15), platform_fee_percent=10)
+    hand = round(formula * 1.4, 2)
+    d = decide(cost, RULE15, hand, "10", "40.00", prev={"Cost Price (£)": cost, "Profit %": "40", "Fee %": "18"})
+    assert d["fee_override"] == 10.0 and d["selling_price"] == hand
+    assert d["profit_shown"] == pytest.approx(((hand * (1 - pricing.effective_rate(10) / 100)) / cost - 1) * 100, abs=0.01)
+
+
+def test_the_manual_price_row_is_stable_run_after_run_with_its_shown_profit():
+    hand = 89.99
+    mirror = {"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": "20"}
+    cell = "20.00"
+    for _ in range(4):
+        d = decide(AMAZON_COST, RULE15, hand, shown(hand, RULE15), cell, supplier="Amazon", prev=mirror, sheet_cost=AMAZON_COST)
+        assert d["how"] == "manual" and d["selling_price"] == hand and d["profit_override"] is None
+        cell = NS["_pct_text"](d["profit_shown"])                               # what the sync writes to the sheet...
+        mirror = {"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": str(int(round(d["profit_shown"])))}   # ...and to the mirror
+    assert cell == "34.19"
+
+
+def test_the_shown_profit_follows_the_cost_and_returns_to_the_band_when_the_formula_overtakes_the_price():
+    hand = 89.99
+    mirror = {"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": "34"}
+    cell = "34.19"
+    dearer = 60.0                                                                # the formula is still below the manual price
+    d = decide(dearer, RULE15, hand, "18.00", cell, supplier="Amazon", prev=mirror, sheet_cost=AMAZON_COST)
+    assert d["how"] == "manual" and d["profit_shown"] == pytest.approx(_profit_earned(hand, dearer, RULE15), abs=0.005)
+    assert d["profit_shown"] < 34.19                                              # a dearer cost leaves less profit on the same price
+    mirror2 = {"Cost Price (£)": dearer, "Fee %": "18", "Profit %": str(int(round(d["profit_shown"])))}
+    much_dearer = 80.0                                                           # now the formula passes the manual price
+    d2 = decide(much_dearer, RULE15, hand, "18.00", NS["_pct_text"](d["profit_shown"]), supplier="Amazon", prev=mirror2, sheet_cost=dearer)
+    assert d2["how"] == "amazon" and d2["profit_override"] is None
+    assert d2["profit_shown"] == band_of(much_dearer, RULE15)                    # back to the band
+
+
+def test_clearing_the_price_returns_the_row_to_the_formula_and_the_band():
+    mirror = {"Cost Price (£)": AMAZON_COST, "Fee %": "18", "Profit %": "34"}
+    d = decide(AMAZON_COST, RULE15, 0.0, "", "34.19", supplier="Amazon", prev=mirror, sheet_cost=AMAZON_COST)
+    assert d["profit_override"] is None and d["selling_price"] == AMAZON_FORMULA and d["profit_shown"] == band_of(AMAZON_COST, RULE15)

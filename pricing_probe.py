@@ -125,6 +125,7 @@ def main():
         priced = 0
         fee_vals, profit_vals = {}, {}
         big, up_rows, manual_rows = [], [], []
+        profit_changes = []
         for n, r in sku_rows:
             c = cells_of(r)
             d = decision(c, mirror.get(c("SKU"), {}), amazon)
@@ -141,6 +142,8 @@ def main():
                 profit_vals[d["profit_override"]] = profit_vals.get(d["profit_override"], 0) + 1
             if d["how"] == "manual":
                 manual_rows.append((n, c("SKU"), d))
+            if d.get("profit_shown") is not None and d.get("band_now") is not None and abs(d["profit_shown"] - d["band_now"]) > 0.005:
+                profit_changes.append((n, c("SKU"), d))
             if d["existing"] > 0:
                 change = (d["selling_price"] / d["existing"] - 1) * 100
                 if change < -8.0:
@@ -159,6 +162,10 @@ def main():
             top = sorted(vals.items(), key=lambda kv: -kv[1])[:10]
             print(f"  most common typed {label} values (value: rows): {dict(top)}")
         print(f"prices kept ABOVE the formula (taken as set by a person): {human}")
+        print(f"Profit % cells that would show the REAL profit of a price above the formula (not the band's): {len(profit_changes)}")
+        for n, sku, d in sorted(profit_changes, key=lambda m: -(m[2]["profit_shown"] - m[2]["band_now"]))[:12]:
+            print(f"  PROFIT row {n} SKU {sku}: price {d['existing']:.2f} vs formula {d['formula_price']:.2f} | band {d['band_now']:g}% -> shown "
+                  f"{d['profit_shown']:.2f}%")
         if amazon:
             print(f"Amazon prices kept as a person's (above the formula, no formula produced them): {len(manual_rows)}")
             if manual_rows:
@@ -221,7 +228,7 @@ def main():
               f"Profit % {mirror.get('Profit %')!r} | rule {d['rule']!r} | read as: fee override {d['fee_override']}, "
               f"profit override {d['profit_override']} | decision {d['how']}"
               f"{' (price set under the Fee % misread)' if d['misread'] else ''} | price now {d['existing']:.2f} -> "
-              f"{d['selling_price']:.2f} (formula {d['formula_price']:.2f})")
+              f"{d['selling_price']:.2f} (formula {d['formula_price']:.2f}) | Profit % the sync writes: {d.get('profit_shown')}")
 
 
 if __name__ == "__main__":

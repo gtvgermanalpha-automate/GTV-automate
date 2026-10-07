@@ -173,3 +173,17 @@ def test_the_vat_model_leaves_the_retained_amount_after_the_real_deduction():
         retained = round(rng.uniform(1.0, 500), 2)
         price = pricing.price_for_retained(retained, rule)
         assert price - pricing.fee_amount(price, rule) == pytest.approx(retained, abs=0.01)
+
+
+def test_effective_profit_percent_matches_the_hand_calculation():
+    rule = pricing.FeeRule("Standard Selling Fee", 15, min_fee=0.25)
+    # 89.99 on a 54.99 cost in a 15% category: 18% of the price goes to OnBuy (commission + VAT)
+    assert pricing.effective_profit_percent(89.99, 54.99, rule) == pytest.approx(((89.99 * 0.82) / 54.99 - 1) * 100)
+    assert pricing.effective_profit_percent(89.99, 54.99, rule) == pytest.approx(34.19, abs=0.005)
+    # a typed fee (the flat path) and the flat fallback
+    assert pricing.effective_profit_percent(50.0, 20.0, None, platform_fee_percent=10) == pytest.approx((50 * (1 - 0.12) / 20 - 1) * 100)
+    assert pricing.effective_profit_percent(50.0, 20.0) == pytest.approx((50 * (1 - 0.24) / 20 - 1) * 100)
+    # the formula's own price earns exactly the profit it was priced for
+    for profit in (15, 20, 40, 100):
+        price = pricing.price_for_profit(100.0, profit, rule)
+        assert pricing.effective_profit_percent(price, 100.0, rule) == pytest.approx(profit, abs=0.01)

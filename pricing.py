@@ -314,6 +314,20 @@ def effective_fee_percent(price, rule=None, legacy=False):
     return fee_amount(price, rule, legacy=legacy) / price * 100.0
 
 
+def effective_profit_percent(price, total_cost, rule=None, platform_fee_percent=None, legacy=False):
+    """The profit a sale at `price` leaves as a share of the cost base (cost + shipping), after OnBuy's commission (VAT
+    included) - the inverse of price_for_profit, and what the Profit % cell shows for a price a person set above the
+    formula. `rule` / `platform_fee_percent` pick the fee exactly as price_for_profit does."""
+    if price <= 0 or total_cost <= 0:
+        return 0.0
+    if rule is not None and platform_fee_percent is None:
+        fee = fee_amount(price, rule, legacy=legacy)
+    else:
+        rate = PLATFORM_FEE_PERCENT if platform_fee_percent is None else platform_fee_percent
+        fee = price * min(max(effective_rate(rate, legacy), 0.0), 95.0) / 100.0
+    return ((price - fee) / total_cost - 1.0) * 100.0
+
+
 def calculate_selling_price(
     cost_price,
     shipping_cost=0.0,
