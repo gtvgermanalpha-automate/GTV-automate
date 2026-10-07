@@ -165,26 +165,31 @@ def main():
     for ln in lines:
         top, row = ln["order_money"], ln["line"]
         sub = top.get("price_subtotal")
-        dlv = top.get("price_delivery")
-        disc = top.get("price_discount")
+        dlv = top.get("price_delivery") or 0.0
+        disc = top.get("price_discount") or 0.0
         tot = top.get("price_total")
-        fee = top.get("fee")
+        fee_ex = top.get("sales_fee_ex_VAT", top.get("fee"))
+        fee_inc = top.get("sales_fee_inc_VAT")
         rule = rules.get(ln["sku"].lstrip("0") or ln["sku"])
-        r_sub = (fee / sub * 100) if fee is not None and sub else None
-        r_tot = (fee / tot * 100) if fee is not None and tot else None
-        r_sd = (fee / (sub + (dlv or 0)) * 100) if fee is not None and sub else None
+        base = (sub + dlv) if sub else None
+
+        def share(x, b=base):
+            return None if x is None or not b else round(x / b * 100, 2)
         print(f"ORDER {ln['order']} | {ln['status']} | {ln['date']} | sku {ln['sku']} | lines {ln['n_lines']} | "
-              f"subtotal {sub} delivery {dlv} discount {disc} total {tot} fee {fee} | "
-              f"fee/subtotal {r_sub if r_sub is None else round(r_sub, 2)}% fee/(subtotal+delivery) {r_sd if r_sd is None else round(r_sd, 2)}% "
-              f"fee/total {r_tot if r_tot is None else round(r_tot, 2)}% | line {json.dumps(row, sort_keys=True)} | "
+              f"subtotal {sub} delivery {top.get('price_delivery')} discount {top.get('price_discount')} total {tot} | "
+              f"sales_fee_ex_VAT {fee_ex} ({share(fee_ex)}% of subtotal+delivery) sales_fee_inc_VAT {fee_inc} ({share(fee_inc)}%) | "
+              f"line {json.dumps(row, sort_keys=True)} | "
               f"tier {rule[2] if rule else '?'} {rule[3] if rule else ''}{'/' + str(rule[4]) + ' above ' + str(rule[5]) if rule and rule[4] is not None else ''} [{rule[0] if rule else '?'}]")
-        if rule and rule[3] is not None and r_sd is not None and rule[4] is None and ln["n_lines"] == 1:
-            ratios.setdefault(rule[3], []).append(r_sd)
+        if rule and rule[3] is not None and rule[4] is None and ln["n_lines"] == 1 and fee_ex and base and sub:
+            ratios.setdefault(rule[3], []).append((fee_ex / base * 100, (fee_inc / base * 100) if fee_inc else None, ln["status"]))
     if ratios:
-        print("SUMMARY - effective fee/(subtotal+delivery) per FLAT tier (nominal -> observed):")
+        print("SUMMARY - OnBuy's own sales fee as a share of subtotal+delivery, per FLAT tier (nominal -> observed):")
         for nominal, vals in sorted(ratios.items()):
-            print(f"  nominal {nominal:g}%: {len(vals)} order(s), observed mean {statistics.mean(vals):.2f}% median {statistics.median(vals):.2f}% "
-                  f"min {min(vals):.2f}% max {max(vals):.2f}% | ratio to nominal {statistics.median(vals) / nominal:.3f}")
+            ex = [v[0] for v in vals]
+            inc = [v[1] for v in vals if v[1]]
+            print(f"  nominal {nominal:g}%: {len(vals)} order(s) | ex-VAT median {statistics.median(ex):.2f}% (min {min(ex):.2f}, max {max(ex):.2f}) "
+                  f"ratio to nominal {statistics.median(ex) / nominal:.3f}"
+                  + (f" | inc-VAT median {statistics.median(inc):.2f}% ratio {statistics.median(inc) / nominal:.3f}" if inc else ""))
     print(f"DONE: scanned {seen} order(s), {len(lines)} line(s) listed, oldest {oldest}")
 
 
