@@ -3,7 +3,7 @@ base-schedule prices landing in that window sell at 15% profit instead."""
 import pricing
 
 
-FLAT = 1 - (pricing.PLATFORM_FEE_PERCENT + pricing.FEE_UPLIFT_PERCENT) / 100.0
+FLAT = 1 - pricing.effective_rate(pricing.PLATFORM_FEE_PERCENT) / 100.0
 
 
 def base_price(total):
@@ -11,25 +11,25 @@ def base_price(total):
 
 
 def test_inside_window_gets_15():
-    # cost 8 -> base 80% -> ~18.34: inside the window.
+    # cost 8 -> base 80% -> ~18.95: inside the window.
     assert 10 <= base_price(8) <= 20
     assert pricing.profit_percent_for(8) == 15
 
 
 def test_cheap_item_outside_window_keeps_band():
-    # cost 3 -> base 100% -> ~7.64: below the window.
+    # cost 3 -> base 100% -> ~7.89: below the window.
     assert base_price(3) < 10
     assert pricing.profit_percent_for(3) == 100
 
 
 def test_expensive_item_outside_window_keeps_band():
-    # cost 15 -> base 40% -> ~26.75: above the window.
+    # cost 15 -> base 40% -> ~27.63: above the window.
     assert base_price(15) > 20
     assert pricing.profit_percent_for(15) == 40
 
 
 def test_anchor_is_stable_when_override_price_leaves_window():
-    # cost 4.4 -> base 100% -> ~11.21 (in window) -> 15% -> ~6.45 (below
+    # cost 4.4 -> base 100% -> ~11.58 (in window) -> 15% -> ~6.66 (below
     # window). The anchor is the BASE price, so the verdict must not flap.
     assert pricing.profit_percent_for(4.4) == 15
     at_15 = pricing.price_for_profit(4.4, 15)
