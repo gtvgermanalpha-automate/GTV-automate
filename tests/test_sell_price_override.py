@@ -4,10 +4,13 @@ import pricing
 
 
 FLAT = 1 - pricing.effective_rate(pricing.PLATFORM_FEE_PERCENT) / 100.0
+FLAT_ANCHOR = 1 - pricing.effective_rate(pricing.PLATFORM_FEE_PERCENT, legacy=True) / 100.0
 
 
 def base_price(total):
-    return total * (1 + pricing.profit_percent(total) / 100.0) / FLAT
+    """The price the window is judged on: the base schedule under the fee model of 2026-09-26 (nominal + 1.5 points) -
+    the VAT correction of 2026-10-07 must not move a row across the GBP 10 / 20 edges."""
+    return total * (1 + pricing.profit_percent(total) / 100.0) / FLAT_ANCHOR
 
 
 def test_inside_window_gets_15():
@@ -51,3 +54,12 @@ def test_untouched_costs_have_no_extra_legacy():
 def test_calculate_selling_price_applies_override():
     expect = round(8 * 1.15 / FLAT, 2)
     assert pricing.calculate_selling_price(8, 0) == expect
+
+
+def test_the_vat_correction_does_not_move_rows_across_the_window_edges():
+    # a cost whose base price is just under GBP 10 under the window's own fee model stays at 100% profit although the
+    # corrected fee would price it at 10.0x; one just under GBP 20 stays inside the window
+    below = next(c / 100 for c in range(380, 440) if base_price(c / 100) < 10 <= pricing.price_for_profit(c / 100, 100))
+    assert pricing.profit_percent_for(below) == 100
+    inside = next(c / 100 for c in range(1100, 1300) if base_price(c / 100) <= 20 < pricing.price_for_profit(c / 100, 40))
+    assert pricing.profit_percent_for(inside) == 15

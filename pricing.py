@@ -108,7 +108,12 @@ def profit_percent(total_cost):
 # base schedule would price between GBP 10 and 20 sells at 15% profit
 # instead. Anchored on the BASE-schedule price, never on the override's own
 # result, so a borderline item whose 15% price falls under GBP 10 cannot
-# flap between profits from run to run.
+# flap between profits from run to run. The anchor price is computed under
+# the fee model of the day the window was set (legacy=True): the 2026-10-07
+# VAT correction raises every base price ~1.8%, which would have pushed rows
+# across the GBP 10 / 20 edges and swung their prices by 40-60% (7 rows
+# down 41%, 23 up 5-59% on the eBay tab alone). Which rows sit in the window
+# is a policy choice, not a fee estimate, so it must not move with the fee.
 SELL_PRICE_OVERRIDES = (
     (10.0, 20.0, 15),   # (base price low, high - both inclusive, profit %)
 )
@@ -122,9 +127,9 @@ def profit_percent_for(total_cost, rule=None):
     if total_cost <= 0 or not SELL_PRICE_OVERRIDES:
         return base
     if rule is not None:
-        base_price = price_for_profit(total_cost, base, rule=rule)
+        base_price = price_for_profit(total_cost, base, rule=rule, legacy=True)
     else:
-        base_price = price_for_profit(total_cost, base)
+        base_price = price_for_profit(total_cost, base, legacy=True)
     for lo, hi, pct in SELL_PRICE_OVERRIDES:
         if lo <= base_price <= hi:
             return pct
