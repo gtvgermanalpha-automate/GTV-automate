@@ -1,0 +1,13 @@
+# SKUs checked BY HAND on 2026-10-10 (full row title next to the full live page name): the OnBuy page IS this row's product, only worded
+# differently (shared catalogue titles), so the nightly content check must not count them as 'shows another product' and must not zero them.
+# One SKU per line; text after '#' is a note. A listing whose page later turns into a different product must be taken off this list.
+
+781908348462  # Premium Quartz Clock Insert with Roman Numerals 65
+463317765688  # YASHE Waffle Maker with Non-Stick Plates, Indicato
+464101745374  # CHIVALZ 6L Top Fill Cool Mist Humidifiers for Bedr
+Ama-B0FKH8WM2B-29  # Remington Almond Allure Hair Straightener, 31 cm, 
+Ama-B0DKXXSTJ1-290  # Ninja SLUSHi Frozen Drinks Maker, 5 Drink Presets,
+Ama-B001SQLI9C-159  # FOSSIL CH2565 Gents Brown Leather Cuff Strap Watch
+Ama-B0CP31T5M6-95  # Amazon Kindle 16 GB (2024 model) - Light and compa
+Ama-B0CPD4JHG2-8  # OTTO KONING Leipzig Teaspoons Set of 12, Silver St
+476069779551  # ZYHKON 5.4 Sleep Earbuds, Smart Screen Case, ENC M
