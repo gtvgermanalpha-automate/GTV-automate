@@ -15,5 +15,3 @@ Ebay-157617590047-5
 # scan 33860732684 as "HP 510 Ultra Mouse Black". Stock/price restored.
 653709952448  # 2026-09-22 source OOS on page, listing stayed in stock - held at 0 pending diagnosis
 # 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
-Ama-B0GXQVJY35-12  # row = Tuidzljd USB GPS signal DETECTOR; page = USB GPS anti-tracking adapter (different function/product?)
-848786499034  # row = SMART RGB ultra-thin ceiling light; page = plain LED round panel down light - smart/RGB feature differs (same pair as YRA 193036826772

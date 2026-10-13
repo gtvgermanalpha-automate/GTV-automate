@@ -2,5 +2,3 @@
 # instead of pushing the sheet's stock, and protected_skus.txt stops the hourly sync from restocking them.
 # Remove a line only after the listing's content has been repaired (and then from protected_skus.txt too).
 # 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
-Ama-B0GXQVJY35-12  # row = Tuidzljd USB GPS signal DETECTOR; page = USB GPS anti-tracking adapter (different function/product?)
-848786499034  # row = SMART RGB ultra-thin ceiling light; page = plain LED round panel down light - smart/RGB feature differs (same pair as YRA 193036826772
