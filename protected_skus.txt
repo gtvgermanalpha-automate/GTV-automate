@@ -15,3 +15,4 @@ Ebay-157617590047-5
 # scan 33860732684 as "HP 510 Ultra Mouse Black". Stock/price restored.
 653709952448  # 2026-09-22 source OOS on page, listing stayed in stock - held at 0 pending diagnosis
 # 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
+# 2026-10-15 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
