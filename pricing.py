@@ -115,7 +115,12 @@ def profit_percent(total_cost):
 # down 41%, 23 up 5-59% on the eBay tab alone). Which rows sit in the window
 # is a policy choice, not a fee estimate, so it must not move with the fee.
 SELL_PRICE_OVERRIDES = (
-    (10.0, 20.0, 15),   # (base price low, high - both inclusive, profit %)
+    (10.0, 15.0, 15),   # (base price low, high - both inclusive, profit %) - GBP 10-15 since 2026-10-22 (user: "15% on 10-15 gbp
+                        # selling products ... else same as before"); the window ran to GBP 20 from 2026-09-26 to 2026-10-22
+)
+# Outgoing windows: a price or Profit % the automation wrote under them is still its own (it follows the formula back to the cost band).
+_SUPERSEDED_SELL_PRICE_OVERRIDES = (
+    (10.0, 20.0, 15),   # 2026-09-26 .. 2026-10-22
 )
 
 
@@ -169,6 +174,12 @@ def legacy_profit_percents(total_cost, rule=None):
         profit = _band_lookup(bands, total_cost)
         if profit != current and profit not in out:
             out.append(profit)
+    # a window that no longer applies (narrowed 2026-10-22): its 15 was the automation's own for every base price it covered
+    if _SUPERSEDED_SELL_PRICE_OVERRIDES:
+        base_price = price_for_profit(total_cost, base, rule=rule, legacy=True) if rule is not None else price_for_profit(total_cost, base, legacy=True)
+        for lo, hi, pct in _SUPERSEDED_SELL_PRICE_OVERRIDES:
+            if lo <= base_price <= hi and pct != current and pct not in out:
+                out.append(pct)
     return out
 
 
