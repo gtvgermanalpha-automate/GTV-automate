@@ -1,4 +1,4 @@
-"""The GBP 10-15 selling-price override (user 2026-09-26 as 10-20, narrowed to 10-15 on 2026-10-22; this store only):
+"""The GBP 10-20 selling-price override (user 2026-09-26, this store only):
 base-schedule prices landing in that window sell at 15% profit instead."""
 import pricing
 
@@ -14,17 +14,9 @@ def base_price(total):
 
 
 def test_inside_window_gets_15():
-    # cost 5.5 -> base 80% -> ~12.61: inside the window.
-    assert 10 <= base_price(5.5) <= 15
-    assert pricing.profit_percent_for(5.5) == 15
-
-
-def test_the_old_window_15_to_20_is_back_on_the_cost_band():
-    # cost 8 -> base 80% -> ~18.35 under the anchor fee: inside the 2026-09-26 window, outside the 2026-10-22 one.
-    assert 15 < base_price(8) <= 20
-    assert pricing.profit_percent_for(8) == 80
-    # ...and the 15 the automation wrote there until 2026-10-22 is still its own (legacy), so the price follows the formula back up
-    assert 15 in pricing.legacy_profit_percents(8)
+    # cost 8 -> base 80% -> ~18.95: inside the window.
+    assert 10 <= base_price(8) <= 20
+    assert pricing.profit_percent_for(8) == 15
 
 
 def test_cheap_item_outside_window_keeps_band():
@@ -35,7 +27,7 @@ def test_cheap_item_outside_window_keeps_band():
 
 def test_expensive_item_outside_window_keeps_band():
     # cost 15 -> base 40% -> ~27.63: above the window.
-    assert base_price(15) > 15
+    assert base_price(15) > 20
     assert pricing.profit_percent_for(15) == 40
 
 
@@ -51,7 +43,7 @@ def test_anchor_is_stable_when_override_price_leaves_window():
 def test_displaced_base_band_counts_as_legacy():
     # Prices written at the cost band's own 80% before the override must be
     # recognised as the automation's, so they follow the formula down.
-    assert pricing.legacy_profit_percents(5.5)[0] == 80
+    assert pricing.legacy_profit_percents(8)[0] == 80
 
 
 def test_untouched_costs_have_no_extra_legacy():
@@ -60,14 +52,14 @@ def test_untouched_costs_have_no_extra_legacy():
 
 
 def test_calculate_selling_price_applies_override():
-    expect = round(5.5 * 1.15 / FLAT, 2)
-    assert pricing.calculate_selling_price(5.5, 0) == expect
+    expect = round(8 * 1.15 / FLAT, 2)
+    assert pricing.calculate_selling_price(8, 0) == expect
 
 
 def test_the_vat_correction_does_not_move_rows_across_the_window_edges():
     # a cost whose base price is just under GBP 10 under the window's own fee model stays at 100% profit although the
-    # corrected fee would price it at 10.0x; one just under GBP 15 stays inside the window
+    # corrected fee would price it at 10.0x; one just under GBP 20 stays inside the window
     below = next(c / 100 for c in range(380, 440) if base_price(c / 100) < 10 <= pricing.price_for_profit(c / 100, 100))
     assert pricing.profit_percent_for(below) == 100
-    inside = next(c / 100 for c in range(600, 700) if base_price(c / 100) <= 15 < pricing.price_for_profit(c / 100, 80))
+    inside = next(c / 100 for c in range(1100, 1300) if base_price(c / 100) <= 20 < pricing.price_for_profit(c / 100, 40))
     assert pricing.profit_percent_for(inside) == 15

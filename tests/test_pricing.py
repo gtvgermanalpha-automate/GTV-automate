@@ -31,10 +31,9 @@ PRICE_CASES = [
     # (kwargs, expected price at the flat fallback fee: the 20% commission plus
     # the 20% VAT OnBuy adds to it (2026-10-07) = 24% -> /0.76
     (dict(cost_price=3.0), 7.89, "GBP 3 -> 100% profit / 0.76"),
-    # The 10-15 selling-price override (2026-09-26 as 10-20, narrowed 2026-10-22): base-schedule prices
+    # The 10-20 selling-price override (2026-09-26): base-schedule prices
     # inside that window sell at 15% instead of the cost band's value.
-    (dict(cost_price=8.0), 18.95, "GBP 8 -> base 18.95: outside the 10-15 window since 2026-10-22 -> 80% (12.11 under the 10-20 window)"),
-    (dict(cost_price=5.5), 8.32, "GBP 5.5 -> base 12.61 in the window -> 15% override"),
+    (dict(cost_price=8.0), 12.11, "GBP 8 -> base 18.95 in the window -> 15% override"),
     (dict(cost_price=4.4), 6.66, "GBP 4.4 -> base 11.58 in the window -> 15% override"),
     (dict(cost_price=20.0), 36.84, "GBP 20 -> 40% profit / 0.76"),
     (dict(cost_price=28.0, shipping_cost=4.0), 58.95, "28+4 ship = 32 total"),
@@ -96,12 +95,10 @@ def test_legacy_profit_percents_expose_only_changed_ranges():
     assert pricing.legacy_profit_percents(9.5) == []
     assert pricing.legacy_profit_percents(20.0) == []
     assert pricing.legacy_profit_percents(0) == []
-    # The 10-15 selling-price override (2026-09-26 as 10-20, narrowed 2026-10-22) displaces the cost
+    # The 10-20 selling-price override (2026-09-26) displaces the cost
     # band's own value; it must stay recognisable so old 80%-era prices
     # follow the override down.
-    assert pricing.legacy_profit_percents(5.5) == [80]
-    # ...and a base price of 15-20 (cost 7.5 -> 17.20) left the window on 2026-10-22: the 15 written there is legacy, 80 is live again
-    assert pricing.legacy_profit_percents(7.5) == [15]
+    assert pricing.legacy_profit_percents(7.5) == [80]
 
 
 def test_absurd_fee_is_clamped_not_divided_by_zero():
