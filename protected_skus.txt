@@ -21,3 +21,5 @@ Ebay-157617590047-5
 # 2026-10-18 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 251592989154  # Amazon row 2456: row = EZVIZWiFiIndoorCamera,HD,PetBabyMonitor,Night | page = EZVIZ WiFi Indoor Camera, HD, Pet Baby Monito
 # 2026-10-20 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+# 2026-10-22 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+Ama-B0BRHJTQZ6-5  # Amazon row 772: row = zoerbufan Toe Separators, 3 Pairs, Soft Silic | page = Toe Separators [3 Pair], Toe Stretcher for Ov
