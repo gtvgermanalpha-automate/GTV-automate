@@ -23,3 +23,7 @@ Ebay-157617590047-5
 # 2026-10-20 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-10-22 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 Ama-B0BRHJTQZ6-5  # Amazon row 772: row = zoerbufan Toe Separators, 3 Pairs, Soft Silic | page = Toe Separators [3 Pair], Toe Stretcher for Ov
+# 2026-10-24 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+449181863934  # Sheet1 row 3289: row = Android 14.0 TV Box Media Player 8GB RAM 128G | page = Fire TV Stick 8K UHD Android 13.0 Media Playe
+# 2026-10-24 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+287036704816  # Amazon row 1078: row = Rekavin Baby Monitor With USB Charger Plug | page = Multi USB and USB C Charger Plug UK Fast Char
