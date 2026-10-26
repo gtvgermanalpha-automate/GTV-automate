@@ -202,3 +202,30 @@ def test_the_workflow_is_plan_by_default_commits_the_state_and_the_nightly_refre
     refresh = nightly[nightly.index("MODE: refresh"):nightly.index("python -u store_sale.py")]
     assert "GOOGLE_CREDENTIALS" in refresh and "steps.gate.outputs.go" in nightly[nightly.index("Store sale refresh"):]
     assert "__SHEET__" not in Path(root / "store_sale.py").read_text(encoding="utf-8")
+
+
+def test_the_guards_main_ends_nothing_while_a_store_sale_is_active_and_ends_leftovers_once_it_has_expired(tmp_path, monkeypatch, capsys):
+    """The nightly runs sale_guard.main() with store_sale.json in the repo root: an active sale = no ending update at all; expired = the old behaviour."""
+    monkeypatch.chdir(tmp_path)
+
+    class Stub:
+        def authenticate(self):
+            return True
+
+    ended = []
+    monkeypatch.setattr(sale_guard, "OnBuyClient", Stub)
+    monkeypatch.setattr(sale_guard, "get_listings", lambda onbuy: [rec("A", "10.00", sale="9.70", end=END), rec("B", "10.00")])
+    monkeypatch.setattr(sale_guard, "end_sales", lambda onbuy, on_sale, dry_run, max_fix: ended.append([r["sku"] for r in on_sale]) or {"planned": len(on_sale)})
+    for name in ("SKU_FILE", "SWEEP_FILE", "DUMP"):
+        monkeypatch.setattr(sale_guard, name, "")
+    monkeypatch.setattr(sale_guard, "DRY_RUN", True)
+    (tmp_path / "store_sale.json").write_text(json.dumps({"percent": 3, "sale_end_date": "2999-12-31 23:59:59"}), encoding="utf-8")
+    sale_guard.main()
+    out = capsys.readouterr().out
+    assert ended == [] and "STORE SALE ACTIVE - 3% off until 2999-12-31" in out and "1 of 2 listings carry a sale price" in out
+    (tmp_path / "store_sale.json").write_text(json.dumps({"percent": 3, "sale_end_date": "2000-01-01 23:59:59"}), encoding="utf-8")        # expired
+    sale_guard.main()
+    assert ended == [["A"]]
+    (tmp_path / "store_sale.json").unlink()                                                                                                # no state at all
+    sale_guard.main()
+    assert ended == [["A"], ["A"]]
