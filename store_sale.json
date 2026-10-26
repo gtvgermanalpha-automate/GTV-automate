@@ -2,11 +2,11 @@
  "percent": 3.0,
  "scope": "all",
  "sale_start_date": "2026-10-25 00:00:00",
- "sale_end_date": "2026-11-25 23:59:59",
+ "sale_end_date": "2026-10-28 23:59:59",
  "exclude_price_from": 10.0,
  "exclude_price_to": 20.0,
  "min_profit_percent": 10.0,
  "floor_mode": "skip",
- "applied_at": "2026-10-26 10:22:35Z",
+ "applied_at": "2026-10-26 10:30:54Z",
  "listings": 7938
 }
