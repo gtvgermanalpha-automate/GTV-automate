@@ -6,8 +6,12 @@ on:
       row:
         description: "Sheet row number to fix"
         required: true
+      tab:
+        description: "Worksheet the row is on (blank = the main product tab; Amazon = the Amazon tab)"
+        required: false
+        default: ""
       new_sku:
-        description: "The SKU to assign (must be unused elsewhere in the sheet)"
+        description: "The SKU to assign (must be unused on both product tabs; digits that form a valid barcode become the product code OnBuy matches on - Ama-<ASIN>-1 sends none)"
         required: true
       expect_sku:
         description: "Safety: the SKU the row holds now - aborts if it differs"
@@ -42,6 +46,7 @@ jobs:
       - name: Set SKU
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SHEET_TAB: ${{ inputs.tab }}
           ROW: ${{ inputs.row }}
           NEW_SKU: ${{ inputs.new_sku }}
           EXPECT_SKU: ${{ inputs.expect_sku }}
