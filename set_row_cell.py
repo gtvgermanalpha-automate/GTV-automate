@@ -12,6 +12,11 @@ SHEET_TAB picks the worksheet (blank = the first tab, "Amazon" = the
 Amazon tab). Prints the old and new value and refuses a no-op, so the run
 log is the audit trail. Touches no other column and no OnBuy API.
 (Ported from the Arden repo, 2026-09-09.)
+
+2026-10-28: the value "(blank)" CLEARS the cell. GitHub refuses an empty value for a
+required workflow input (HTTP 422), and a person's typed Fee % / Profit % has to be
+removable (GTV Amazon row 5198 carried a typed Fee % 18.00 that the sync reads as an
+override and never overwrites; blank hands the cell back to the automation).
 """
 import json
 import os
@@ -25,6 +30,7 @@ ROW = int(os.getenv("ROW") or "0")
 EXPECT_SKU = (os.getenv("EXPECT_SKU") or "").strip()
 COLUMN = (os.getenv("COLUMN") or "").strip()
 VALUE = os.getenv("VALUE")
+BLANK_WORDS = ("(blank)", "(clear)")
 DRY_RUN = (os.getenv("DRY_RUN") or "1").strip().lower() not in ("0", "no", "false", "")
 
 
@@ -39,6 +45,7 @@ def col_letter(n):
 def main():
     if not ROW or not COLUMN or VALUE is None:
         raise SystemExit("ROW, COLUMN and VALUE are all required")
+    value = "" if VALUE.strip().lower() in BLANK_WORDS else VALUE
 
     creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(
@@ -69,16 +76,16 @@ def main():
 
     old = cell(COLUMN)
     print(f"  {COLUMN} old: {old!r}")
-    print(f"  {COLUMN} new: {VALUE!r}")
-    if old == VALUE:
+    print(f"  {COLUMN} new: {value!r}" + (" (cleared)" if value == "" else ""))
+    if old == value:
         print("already correct - nothing to do")
         return
     if DRY_RUN:
         print("DRY RUN - nothing written")
         return
 
-    sheet.update_acell(f"{col_letter(col_map[COLUMN])}{ROW}", VALUE)
-    print(f"WROTE row {ROW} {COLUMN}")
+    sheet.update_acell(f"{col_letter(col_map[COLUMN])}{ROW}", value)
+    print(f"WROTE row {ROW} {COLUMN}" + (" (cleared)" if value == "" else ""))
 
 
 if __name__ == "__main__":

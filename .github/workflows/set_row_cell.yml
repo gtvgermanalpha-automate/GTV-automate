@@ -10,7 +10,7 @@ on:
         description: "Column header, e.g. Category or Brand"
         required: true
       value:
-        description: "The corrected value"
+        description: "The corrected value; (blank) clears the cell (GitHub refuses an empty required input)"
         required: true
       expect_sku:
         description: "Safety: the SKU that row must hold - aborts if it differs"
