@@ -7,7 +7,7 @@ name: Amazon Sync (Keepa)
 # so each hour carries one pipeline's OnBuy pushes (240 calls/hour quota).
 on:
   schedule:
-    - cron: "7 1-21/4 * * *"   # every 4h / 6 a day (user 2026-09-14): odd hours 1,5,...,21 - eBay keeps the even hours; OpenMaal+Makstore take the other odd lane so the shared key's bucket refills between draws
+    - cron: "7 1-21/4 * * *"   # every 4h / 6 a day (user 2026-09-14): odd hours 1,5,...,21 - eBay keeps the even hours; since 2026-11-02 key 1 is GTV + Ardwick only (Makstore and OpenMaal are off it): Ardwick takes the hours between, 3,7,...,23 at :42, so the bucket refills between draws
   workflow_dispatch:
     inputs:
       recategorize:
