@@ -1,0 +1,59 @@
+name: Listing Touch Census (read-only)
+
+# One sweep of the account's listings, no writes anywhere: when was each listing last touched on OnBuy (updated_at), in buckets, split by
+# stock 0 / above 0 - to tell our own passes (tall spikes at their start times) from a writer outside our automation. See the script.
+# Shares the API token with the sync, so it queues in the onbuy-api group.
+
+on:
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "How many hours back to bucket"
+        required: false
+        default: "16"
+      target_skus:
+        description: "SKUs whose updated_at / stock to print (comma separated)"
+        required: false
+        default: ""
+      window_from:
+        description: "Also list IN-STOCK listings last touched from this UTC time (YYYY-MM-DD HH:MM:SS)"
+        required: false
+        default: ""
+      window_to:
+        description: "... until this UTC time"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Census
+        env:
+          HOURS: ${{ inputs.hours }}
+          TARGET_SKUS: ${{ inputs.target_skus }}
+          WINDOW_FROM: ${{ inputs.window_from }}
+          WINDOW_TO: ${{ inputs.window_to }}
+          ONBUY_USE_SANDBOX: ${{ vars.ONBUY_USE_SANDBOX }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_TEST_CONSUMER_KEY: ${{ secrets.ONBUY_TEST_CONSUMER_KEY }}
+          ONBUY_TEST_SECRET_KEY: ${{ secrets.ONBUY_TEST_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python listing_touch_census.py
