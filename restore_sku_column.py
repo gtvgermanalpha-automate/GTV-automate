@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+from datetime import date, datetime
 
 SHEET_NAME = "OnBuy_Feed_Master"
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -77,6 +78,23 @@ def sku_cell(value):
 def sku_text(typed):
     """The text the sync will read back for a typed SKU cell (commas removed, like the sync does)."""
     return "" if typed is None else str(typed[1]).replace(",", "").strip()
+
+
+def same_cell(a, b):
+    """Do an earlier-revision cell (python value from the .xlsx) and today's displayed text mean the same? Dates are not compared (formats differ)."""
+    if isinstance(a, (datetime, date)):
+        return True
+    na, nb = norm(a), norm(b)
+    if na == nb:
+        return True
+
+    def num(x):
+        try:
+            return float(re.sub(r"[£$€%,\s]", "", x))
+        except ValueError:
+            return None
+    fa, fb = num(na), num(nb)
+    return fa is not None and fb is not None and abs(fa - fb) < 1e-6
 
 
 def plan(old_header, old_rows, cur_header, cur_rows, key_cols=KEY_COLS, sku_formulas=0):
@@ -138,17 +156,37 @@ def plan(old_header, old_rows, cur_header, cur_rows, key_cols=KEY_COLS, sku_form
             unassigned.append(i + 2)
         else:
             skus.append(sku_cell(cell(old_rows[n], sku_i)))
-    texts = [sku_text(s) for s in skus if s is not None]
-    seen, dupes = set(), set()
-    for t in texts:
-        (dupes if t in seen else seen).add(t)
+    by_text = {}
+    for i, typed in enumerate(skus):
+        if typed is not None:
+            by_text.setdefault(sku_text(typed), []).append(i + 2)
+    old_counts = {}
+    for row in old_rows:
+        t = sku_text(sku_cell(cell(row, sku_i)))
+        if t:
+            old_counts[t] = old_counts.get(t, 0) + 1
+    dupes = {t: rows for t, rows in by_text.items() if len(rows) > 1}
+    invented = {t: rows for t, rows in dupes.items() if len(rows) > old_counts.get(t, 0)}
+    out["warnings"] = [f"SKU {t!r} sits on {len(rows)} rows (sheet rows {rows}) - the earlier revision had it that way too"
+                       for t, rows in dupes.items() if t not in invented]
     formulas = int(sku_formulas)
-    if dupes:
-        out["problems"].append(f"{len(dupes)} SKU value(s) would appear on more than one row, e.g. {sorted(dupes)[:5]}")
+    if invented:
+        out["problems"].append(f"{len(invented)} SKU value(s) would appear on MORE rows than in the earlier revision, e.g. {sorted(invented)[:5]} - a pairing bug")
     if formulas:
         out["problems"].append(f"{formulas} SKU cell(s) in the earlier revision are FORMULAS - values alone would not restore the design")
     real_rows = len(cur_rows) - blank_rows
+    col_diffs = {}
+    for i, n in enumerate(pair):
+        if n is None:
+            continue
+        for j, name in enumerate(cur_h):
+            if not same_cell(old_cell(old_rows[n], j), cell(cur_rows[i], j)):
+                hit = col_diffs.setdefault(name, {"rows": 0, "examples": []})
+                hit["rows"] += 1
+                if len(hit["examples"]) < 2:
+                    hit["examples"].append((i + 2, norm(old_cell(old_rows[n], j))[:40], norm(cell(cur_rows[i], j))[:40]))
     out["stats"] = {
+        "dupes": dupes, "col_diffs": col_diffs,
         "sku_position": sku_i + 1, "rows_now": real_rows, "rows_then": sum(1 for k in old_keys if any(k)),
         "positional": positional, "moved": moved, "unassigned": unassigned,
         "old_blank": sum(1 for i, n in enumerate(pair) if n is not None and skus[i] is None),
@@ -327,6 +365,8 @@ def main():
     st = result["stats"]
     for p in result["problems"]:
         print(f"PROBLEM: {p}")
+    for w in result.get("warnings", []):
+        print(f"WARNING: {w}")
     if st:
         print(f"SKU was column {st['sku_position']} | rows then {st['rows_then']} / now {st['rows_now']} | paired by position {st['positional']}, "
               f"by key {st['moved']} | NOT paired {len(st['unassigned'])} | paired but blank SKU then {st['old_blank']} | old rows now gone {st['unused_old']}")
@@ -337,6 +377,21 @@ def main():
             if t:
                 kinds["12-digit" if re.fullmatch(r"\d{12}", t) else "Ama-ASIN" if t.startswith("Ama-") else "other"] += 1
         print(f"SKU shapes: {kinds}")
+        if st["col_diffs"]:
+            print("columns whose cells differ between then and now (rows): "
+                  + ", ".join(f"{k} {v['rows']}" for k, v in sorted(st["col_diffs"].items(), key=lambda kv: -kv[1]["rows"])))
+            for k, v in sorted(st["col_diffs"].items(), key=lambda kv: -kv[1]["rows"])[:6]:
+                print(f"  e.g. {k}: " + "; ".join(f"row {r} then {a!r} now {b!r}" for r, a, b in v["examples"]))
+        else:
+            print("no other cell differs between then and now (dates not compared)")
+        wanted_cols = [c for c in ("Title", "Supplier URL", "ASIN", "OPC", "Sync Status", "Stock", "Status", "Selling Price (£)", "OnBuy Product Created") if c in cur_header]
+        for t, rows_ in st["dupes"].items():
+            for rn in rows_:
+                row_ = cur_rows[rn - 2]
+                print(f"  duplicate {t!r} row {rn}: " + " | ".join(f"{c}={norm(cell(row_, cur_header.index(c)))[:45]!r}" for c in wanted_cols))
+        odd = [(i + 2, sku_text(x)) for i, x in enumerate(result["skus"]) if x is not None and not re.fullmatch(r"\d{12}", sku_text(x)) and not sku_text(x).startswith("Ama-")]
+        if odd:
+            print(f"SKUs that are neither 12 digits nor Ama-...: {len(odd)}: " + ", ".join(f"r{rn}:{t}" for rn, t in odd[:45]))
         if st["unassigned"]:
             print(f"rows without a pair (sheet row numbers): {st['unassigned'][:40]}{' ...' if len(st['unassigned']) > 40 else ''}")
         title_j = cur_header.index("Title") if "Title" in cur_header else 0
