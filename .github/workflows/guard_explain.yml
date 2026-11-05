@@ -1,0 +1,28 @@
+name: Guard Explain (read-only)
+
+# Runs the selection code of the oversell guard, the OOS pass and the audit on the live sheet and prints, per SKU, whether each
+# layer would push stock 0 for it and which rule drops it. Google Sheet only - no OnBuy call, no writes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      skus:
+        description: "SKUs, comma-separated, exactly as in the sheet"
+        required: true
+
+jobs:
+  explain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Explain
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SKUS: ${{ inputs.skus }}
+        run: python guard_explain.py
