@@ -144,3 +144,21 @@ def test_diff_names_the_removed_column_and_counts_changed_cells_by_header():
     assert d["changed"] == {"Stock": {"rows": 1, "examples": [(3, "5", "9")]}}
     same = r.diff_tabs(HEADER_NOW, [now_row(1)], HEADER_NOW, [now_row(1)])
     assert same["changed"] == {} and same["removed"] == [] and same["added"] == []
+
+
+def test_sku_only_rows_below_the_data_are_found_and_typed():
+    then = [then_row("S1", 1), then_row("S2", 2), ["175321526932"] + [None] * 6, [None] * 7, ["Ama-X-1"] + [None] * 6]
+    typed, problems = r.tail_plan(HEADER_THEN, then, 2)
+    assert problems == [] and typed == [("string", "175321526932"), None, ("string", "Ama-X-1")]
+    typed, problems = r.tail_plan(HEADER_THEN, [then_row("S1", 1), then_row("S2", 2)], 2)
+    assert typed == [] and problems == []
+    _typed, problems = r.tail_plan(HEADER_THEN, [then_row("S1", 1), then_row("S2", 2), then_row("S3", 3)], 2)
+    assert problems and "do not line up" in problems[0]                    # a row below holds data too: stop
+
+
+def test_the_tail_write_grows_the_grid_only_when_it_has_to():
+    body = r.build_tail_requests(9, 5224, [("string", "A"), None, ("number", 7)], grid_rows=6000)
+    assert [list(b)[0] for b in body] == ["updateCells"] and body[0]["updateCells"]["start"] == {"sheetId": 9, "rowIndex": 5224, "columnIndex": 0}
+    assert [row["values"][0] for row in body[0]["updateCells"]["rows"]] == [{"userEnteredValue": {"stringValue": "A"}}, {}, {"userEnteredValue": {"numberValue": 7}}]
+    short = r.build_tail_requests(9, 5224, [("string", "A")] * 10, grid_rows=5230)
+    assert [list(b)[0] for b in short] == ["appendDimension", "updateCells"] and short[0]["appendDimension"]["length"] == 4
