@@ -7,7 +7,7 @@ nothing anywhere. Env: SKUS (comma-separated, exact), SHEET_NAME.
 """
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -100,6 +100,22 @@ def main():
             if str(row.get("SKU") or "").strip():
                 pending += 1
         print(f"OOS PASS tab {ws.title}: {pending} row(s) would be selected right now (sheet-0, live status, last push older than last check)")
+        # how long rows wait between two supplier checks = the window in which a sold-out supplier item still shows stock
+        now_pkt = datetime.now(timezone(timedelta(hours=5))).replace(tzinfo=None)
+        ages = []
+        for row in data:
+            if not str(row.get("SKU") or "").strip() or not str(row.get("Sync Status") or "").strip().startswith("Synced"):
+                continue
+            t = parse_time(str(row.get("Last Checked Time") or ""))
+            if t.year >= 2020:
+                ages.append((now_pkt - t).total_seconds() / 3600.0)
+        if ages:
+            ages.sort()
+            def _q(p):
+                return ages[min(len(ages) - 1, int(p * len(ages)))]
+            edges = [(0, 6), (6, 12), (12, 24), (24, 36), (36, 48), (48, 10 ** 6)]
+            spread = " ".join(f"{lo}-{hi if hi < 10 ** 6 else 'more'}h:{sum(1 for a in ages if lo <= a < hi)}" for lo, hi in edges)
+            print(f"CHECK AGE tab {ws.title}: {len(ages)} Synced rows | median {_q(.5):.1f} h | p90 {_q(.9):.1f} h | max {ages[-1]:.1f} h | {spread}")
         for idx, row in enumerate(data):
             sku = str(row.get("SKU") or "").replace(",", "").strip()
             if sku in WANT:
