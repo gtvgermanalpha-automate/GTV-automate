@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "list | find | plan | diff | apply  (only apply writes the sheet)"
+        description: "list | find | plan | diff | tail | apply  (only apply, and tail with confirm=restore, write the sheet)"
         required: true
         default: "list"
       tab:
@@ -24,13 +24,13 @@ on:
         required: false
         default: ""
       confirm:
-        description: "apply only: type restore"
+        description: "apply, or tail to write: type restore"
         required: false
         default: ""
 
 # Only the writing action queues behind the syncs (same lock group as every sheet writer); the read-only actions run at once.
 concurrency:
-  group: ${{ inputs.action == 'apply' && 'onbuy-api' || format('restore-sku-{0}', github.run_id) }}
+  group: ${{ (inputs.action == 'apply' || (inputs.action == 'tail' && inputs.confirm == 'restore')) && 'onbuy-api' || format('restore-sku-{0}', github.run_id) }}
   cancel-in-progress: false
 
 jobs:
