@@ -7,12 +7,12 @@ today's tab plus a SKU column, and writes just that column back: insert column A
 (the tab's other columns shift one place to the right again, as before).
 
 Env:
-  ACTION          list | find | plan | apply | diff   (default list; only apply writes)
+  ACTION          list | find | plan | apply | diff | tail   (default list; apply and tail+CONFIRM write)
   TAB             worksheet name                   (default Amazon)
   SINCE           ISO time; older revisions are ignored   (default 2026-11-04T06:00:00Z)
   REVISION        Drive revision id for plan/apply; empty = the last revision that still has a SKU header (found by bisection)
   REVISION2       diff only - the second revision to compare REVISION against (every tab, by header name)
-  CONFIRM         apply only - must be "restore"
+  CONFIRM         apply (and tail, to write instead of just plan) - must be "restore"
   MAX_UNASSIGNED  apply only - most rows allowed to stay without a SKU (default 25)
 """
 import io
@@ -216,6 +216,24 @@ def build_requests(sheet_id, skus):
     ]
 
 
+def build_tail_requests(sheet_id, first_row_index, typed, grid_rows):
+    """Write SKU-only rows below the data (column A, from 0-based row first_row_index). Adds grid rows first when the tab is too short."""
+    rows = []
+    for t in typed:
+        if t is None:
+            rows.append({"values": [{}]})
+        elif t[0] == "number":
+            rows.append({"values": [{"userEnteredValue": {"numberValue": t[1]}}]})
+        else:
+            rows.append({"values": [{"userEnteredValue": {"stringValue": t[1]}}]})
+    reqs = []
+    need = first_row_index + len(typed)
+    if need > grid_rows:
+        reqs.append({"appendDimension": {"sheetId": sheet_id, "dimension": "ROWS", "length": need - grid_rows}})
+    reqs.append({"updateCells": {"rows": rows, "fields": "userEnteredValue", "start": {"sheetId": sheet_id, "rowIndex": first_row_index, "columnIndex": 0}}})
+    return reqs
+
+
 def find_boundary(revs, has_sku):
     """revs oldest-first; SKU present early, absent late. Returns (index of the last revision WITH a SKU header, index of the first without)."""
     if len(revs) < 2:
@@ -232,6 +250,28 @@ def find_boundary(revs, has_sku):
         else:
             hi = mid
     return lo, hi
+
+
+def tail_plan(old_header, old_rows, n_data):
+    """The earlier revision kept SKUs in rows BELOW the last data row (a SKU and nothing else - ready for the next paste).
+    old_rows are the data rows of the earlier revision (SKU still in place); n_data = how many rows hold data today.
+    Returns (typed SKUs for sheet rows n_data+2 .., problems): None entries are rows in between that had no SKU."""
+    names = [norm(h) for h in trim_row(old_header)]
+    if names.count("SKU") != 1:
+        return [], ["the earlier revision's header has no single SKU column"]
+    sku_i = names.index("SKU")
+    last_data = -1
+    for k, row in enumerate(old_rows):
+        if any(norm(v) for j, v in enumerate(row) if j != sku_i):
+            last_data = k
+    problems = []
+    if last_data + 1 != n_data:
+        problems.append(f"the earlier revision's last data row is #{last_data + 2} but today's is #{n_data + 1} - the rows do not line up")
+    tail = old_rows[n_data:]
+    typed = [sku_cell(cell(row, sku_i)) for row in tail]
+    while typed and typed[-1] is None:
+        typed.pop()
+    return typed, problems
 
 
 def diff_tabs(a_header, a_rows, b_header, b_rows, examples=3):
@@ -347,8 +387,8 @@ def main():
     tab_name = (os.getenv("TAB") or "Amazon").strip()
     since = (os.getenv("SINCE") or "2026-11-04T06:00:00Z").strip()
     wanted = (os.getenv("REVISION") or "").strip()
-    if action not in ("list", "find", "plan", "apply", "diff"):
-        raise SystemExit(f"ACTION must be list, find, plan, apply or diff, got {action!r}")
+    if action not in ("list", "find", "plan", "apply", "diff", "tail"):
+        raise SystemExit(f"ACTION must be list, find, plan, apply, diff or tail, got {action!r}")
     if action == "apply" and (os.getenv("CONFIRM") or "").strip().lower() != "restore":
         raise SystemExit("apply needs CONFIRM=restore")
     creds, gc = _clients()
@@ -358,6 +398,65 @@ def main():
     if action == "list":
         for r in revs:
             print(f"{r['id']}\t{r['modifiedTime']}\t{who(r)}\tsize={r.get('size', '?')}\texport={'xlsx' if XLSX in (r.get('exportLinks') or {}) else 'NO'}")
+        return
+
+    if action == "tail":
+        pick = {r["id"]: r for r in revs}
+        if wanted not in pick:
+            raise SystemExit(f"tail needs REVISION from the list since {since}; got {wanted!r}")
+        ws = book.worksheet(tab_name)
+        cur = with_retry(ws.get_all_values, what=f"read {tab_name}", max_attempts=3)
+        head = trim_row(cur[0])
+        if [norm(h) for h in head[:1]] != ["SKU"]:
+            raise SystemExit(f"[{tab_name}] A1 is {head[:1]!r}, expected 'SKU' - run apply first")
+        body_rows = trim_rows([r[1:] for r in cur[1:]])                  # data rows, ignoring column A
+        n_data = len(body_rows)
+        below = [str(r[0]).strip() if r else "" for r in cur[1 + n_data:]]
+        if any(below):
+            print(f"[{tab_name}] column A already holds {sum(1 for b in below if b)} value(s) below the data (rows {n_data + 2}..) - nothing to do")
+            return
+        old_header, old_rows, _f = old_tab(creds, pick[wanted], tab_name)
+        old_wo = [norm(h) for h in trim_row(old_header)]
+        if "SKU" in old_wo:
+            old_wo = old_wo[:old_wo.index("SKU")] + old_wo[old_wo.index("SKU") + 1:]
+        if old_wo != [norm(h) for h in head[1:]]:
+            raise SystemExit("the tab's header today (after the SKU column) differs from the earlier revision's - stopping")
+        typed, problems = tail_plan(old_header, old_rows, n_data)
+        for p in problems:
+            print(f"PROBLEM: {p}")
+        texts = [sku_text(t) for t in typed if t is not None]
+        taken = {str(r[0]).replace(",", "").strip() for r in cur[1:1 + n_data] if r}
+        clash = sorted(set(texts) & taken)
+        if clash:
+            print(f"WARNING: {len(clash)} of these SKUs are also on a data row today, e.g. {clash[:5]}")
+        if len(texts) != len(set(texts)):
+            print(f"WARNING: {len(texts) - len(set(texts))} repeated SKU(s) inside the block")
+        shapes = {"12-digit": 0, "Ama-ASIN": 0, "other": 0}
+        for t in texts:
+            shapes["12-digit" if re.fullmatch(r"\d{12}", t) else "Ama-ASIN" if t.startswith("Ama-") else "other"] += 1
+        print(f"SKU-only rows below the data: {len(typed)} row(s) from sheet row {n_data + 2} to {n_data + 1 + len(typed)}, {len(texts)} SKU value(s), shapes {shapes}")
+        print("  first: " + ", ".join(texts[:6]) + " | last: " + ", ".join(texts[-4:]))
+        if problems or not typed:
+            print("nothing to write" if not typed else "refusing to write: see PROBLEM lines above")
+            return
+        if (os.getenv("CONFIRM") or "").strip().lower() != "restore":
+            print("PLAN ONLY - nothing was written (set CONFIRM=restore to write)")
+            return
+        fresh = with_retry(ws.get_all_values, what=f"re-read {tab_name}", max_attempts=3)
+        if trim_rows(fresh[1:]) != trim_rows(cur[1:]) or trim_row(fresh[0]) != head:
+            raise SystemExit("the tab changed while this run was planning - nothing written; run it again")
+        body = {"requests": build_tail_requests(ws.id, n_data + 1, typed, ws.row_count)}
+        with_retry(lambda: book.batch_update(body), what="write SKU-only rows", max_attempts=1)
+        after = with_retry(ws.get_all_values, what=f"read back {tab_name}", max_attempts=3)
+        got = [str(r[0]).replace(",", "").strip() if r else "" for r in after[1 + n_data:1 + n_data + len(typed)]]
+        want = [sku_text(t) for t in typed]
+        got += [""] * (len(want) - len(got))
+        bad = [n_data + 2 + i for i, (g, w) in enumerate(zip(got, want)) if g != w]
+        same_body = trim_rows([r[1:] for r in after[1:1 + n_data]]) == body_rows
+        if bad or not same_body:
+            print(f"READ-BACK PROBLEMS: {len(bad)} cell(s) differ (rows {bad[:10]}); data rows unchanged: {same_body}")
+            sys.exit(1)
+        print(f"WROTE + VERIFIED: {len(texts)} SKU value(s) in rows {n_data + 2}..{n_data + 1 + len(typed)}; the {n_data} data rows are unchanged")
         return
 
     if action == "diff":
