@@ -133,3 +133,14 @@ def test_the_boundary_search_refuses_a_window_that_cannot_contain_the_break():
         r.find_boundary(revs, lambda rev: True)
     with pytest.raises(RuntimeError):
         r.find_boundary(revs[:1], lambda rev: True)
+
+
+def test_diff_names_the_removed_column_and_counts_changed_cells_by_header():
+    a_head, a_rows = HEADER_THEN, [then_row("S1", 1), then_row("S2", 2)]
+    b_rows = [now_row(1), now_row(2)]
+    b_rows[1][5] = 9                                                 # Stock changed on the second row
+    d = r.diff_tabs(a_head, a_rows, HEADER_NOW, b_rows)
+    assert d["removed"] == ["SKU"] and d["added"] == [] and d["rows"] == (2, 2) and d["cols"] == (7, 6)
+    assert d["changed"] == {"Stock": {"rows": 1, "examples": [(3, "5", "9")]}}
+    same = r.diff_tabs(HEADER_NOW, [now_row(1)], HEADER_NOW, [now_row(1)])
+    assert same["changed"] == {} and same["removed"] == [] and same["added"] == []
