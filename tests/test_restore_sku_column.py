@@ -62,13 +62,32 @@ def test_a_layout_that_differs_by_more_than_the_sku_column_is_refused():
     assert not out["ok"] and "SKU" in out["problems"][0]
 
 
-def test_a_repeated_sku_or_a_formula_column_stops_the_restore():
+def test_a_repeated_sku_that_the_earlier_revision_already_had_is_a_warning_not_a_stop():
     then = [then_row("DUP", 1), then_row("DUP", 2)]
     out = r.plan(HEADER_THEN, then, HEADER_NOW, [now_row(1), now_row(2)])
-    assert not out["ok"] and "more than one row" in out["problems"][0]
-    ok_then = [then_row("S1", 1)]
-    out = r.plan(HEADER_THEN, ok_then, HEADER_NOW, [now_row(1)], sku_formulas=3)
+    assert out["ok"] and out["stats"]["dupes"] == {"DUP": [2, 3]}
+    assert "sits on 2 rows" in out["warnings"][0]
+
+
+def test_a_formula_column_stops_the_restore():
+    out = r.plan(HEADER_THEN, [then_row("S1", 1)], HEADER_NOW, [now_row(1)], sku_formulas=3)
     assert not out["ok"] and "FORMULAS" in out["problems"][0]
+
+
+def test_cells_that_changed_since_are_counted_per_column():
+    then = [then_row("S1", 1), then_row("S2", 2)]
+    now = [now_row(1), now_row(2)]
+    now[1][5] = 7                                                   # Stock 5 -> 7 on the second row
+    out = r.plan(HEADER_THEN, then, HEADER_NOW, now)
+    assert out["ok"] and out["stats"]["col_diffs"] == {"Stock": {"rows": 1, "examples": [(3, "5", "7")]}}
+    same = r.plan(HEADER_THEN, then, HEADER_NOW, [now_row(1), now_row(2)])
+    assert same["stats"]["col_diffs"] == {}
+
+
+def test_same_cell_ignores_number_formatting_and_dates():
+    from datetime import datetime
+    assert r.same_cell(12.99, "£12.99") and r.same_cell(1234, "1,234") and r.same_cell(5.0, "5")
+    assert r.same_cell(datetime(2026, 11, 4, 10, 0), "04/11/2026 15:00") and not r.same_cell("a", "b") and not r.same_cell(5, "6")
 
 
 def test_cell_types_follow_the_earlier_revision():
