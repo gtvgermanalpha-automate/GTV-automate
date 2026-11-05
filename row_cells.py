@@ -15,7 +15,7 @@ from retry_utils import with_retry
 
 SHEET_NAME = os.getenv("SHEET_NAME") or "OnBuy_Feed_Master"
 WANT = [s.strip() for s in (os.getenv("SKUS") or "").split(",") if s.strip()]
-SHOW = ["Stock", "Status", "Selling Price (£)", "Price Check Flag", "Sync Status", "OnBuy Product Created", "OnBuy Listing Active",
+SHOW = ["OPC", "ASIN", "Stock", "Status", "Selling Price (£)", "Price Check Flag", "Sync Status", "OnBuy Product Created", "OnBuy Listing Active",
         "Last Updated", "Last Checked Time", "Last OnBuy Sync"]
 
 
