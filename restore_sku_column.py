@@ -7,10 +7,11 @@ today's tab plus a SKU column, and writes just that column back: insert column A
 (the tab's other columns shift one place to the right again, as before).
 
 Env:
-  ACTION          list | find | plan | apply      (default list; only apply writes)
+  ACTION          list | find | plan | apply | diff   (default list; only apply writes)
   TAB             worksheet name                   (default Amazon)
   SINCE           ISO time; older revisions are ignored   (default 2026-11-04T06:00:00Z)
   REVISION        Drive revision id for plan/apply; empty = the last revision that still has a SKU header (found by bisection)
+  REVISION2       diff only - the second revision to compare REVISION against (every tab, by header name)
   CONFIRM         apply only - must be "restore"
   MAX_UNASSIGNED  apply only - most rows allowed to stay without a SKU (default 25)
 """
@@ -233,6 +234,27 @@ def find_boundary(revs, has_sku):
     return lo, hi
 
 
+def diff_tabs(a_header, a_rows, b_header, b_rows, examples=3):
+    """Compare two snapshots of one tab by header NAME (rows by position). Returns removed/added column names, row counts and, per common
+    column, how many cells differ (with a few examples) - what an edit session between the two revisions changed."""
+    a_h = [norm(h) for h in trim_row(a_header)]
+    b_h = [norm(h) for h in trim_row(b_header)]
+    a_ix = {h: j for j, h in enumerate(a_h) if h}
+    b_ix = {h: j for j, h in enumerate(b_h) if h}
+    common = [h for h in a_h if h and h in b_ix]
+    changed = {}
+    for i in range(min(len(a_rows), len(b_rows))):
+        for h in common:
+            va, vb = norm(cell(a_rows[i], a_ix[h])), norm(cell(b_rows[i], b_ix[h]))
+            if va != vb:
+                hit = changed.setdefault(h, {"rows": 0, "examples": []})
+                hit["rows"] += 1
+                if len(hit["examples"]) < examples:
+                    hit["examples"].append((i + 2, va[:40], vb[:40]))
+    return {"removed": [h for h in a_h if h and h not in b_ix], "added": [h for h in b_h if h and h not in a_ix],
+            "rows": (len(a_rows), len(b_rows)), "cols": (len(a_h), len(b_h)), "changed": changed}
+
+
 # ---------------------------------------------------------------- Google IO
 def _clients():
     import gspread
@@ -325,8 +347,8 @@ def main():
     tab_name = (os.getenv("TAB") or "Amazon").strip()
     since = (os.getenv("SINCE") or "2026-11-04T06:00:00Z").strip()
     wanted = (os.getenv("REVISION") or "").strip()
-    if action not in ("list", "find", "plan", "apply"):
-        raise SystemExit(f"ACTION must be list, find, plan or apply, got {action!r}")
+    if action not in ("list", "find", "plan", "apply", "diff"):
+        raise SystemExit(f"ACTION must be list, find, plan, apply or diff, got {action!r}")
     if action == "apply" and (os.getenv("CONFIRM") or "").strip().lower() != "restore":
         raise SystemExit("apply needs CONFIRM=restore")
     creds, gc = _clients()
@@ -336,6 +358,35 @@ def main():
     if action == "list":
         for r in revs:
             print(f"{r['id']}\t{r['modifiedTime']}\t{who(r)}\tsize={r.get('size', '?')}\texport={'xlsx' if XLSX in (r.get('exportLinks') or {}) else 'NO'}")
+        return
+
+    if action == "diff":
+        import openpyxl
+        wanted2 = (os.getenv("REVISION2") or "").strip()
+        pick = {r["id"]: r for r in revs}
+        if wanted not in pick or wanted2 not in pick:
+            raise SystemExit(f"diff needs REVISION and REVISION2 from the list since {since}; got {wanted!r} / {wanted2!r}")
+        books = []
+        for rid in (wanted, wanted2):
+            print(f"revision {rid}: {pick[rid]['modifiedTime']} by {who(pick[rid])}")
+            books.append(openpyxl.load_workbook(io.BytesIO(fetch_export(creds, pick[rid])), read_only=True, data_only=True))
+        names = list(books[0].sheetnames) + [n for n in books[1].sheetnames if n not in books[0].sheetnames]
+        print(f"tabs then: {books[0].sheetnames}")
+        print(f"tabs now : {books[1].sheetnames}")
+        for name in names:
+            if name not in books[0].sheetnames or name not in books[1].sheetnames:
+                print(f"[{name}] exists only in {'the second' if name not in books[0].sheetnames else 'the first'} revision")
+                continue
+            snaps = []
+            for wb in books:
+                rows = [list(r) for r in wb[name].iter_rows(values_only=True)]
+                snaps.append((trim_row(rows[0]) if rows else [], trim_rows(rows[1:])))
+            d = diff_tabs(snaps[0][0], snaps[0][1], snaps[1][0], snaps[1][1])
+            total = sum(v["rows"] for v in d["changed"].values())
+            print(f"[{name}] rows {d['rows'][0]} -> {d['rows'][1]}, columns {d['cols'][0]} -> {d['cols'][1]}, removed {d['removed']}, added {d['added']}, "
+                  f"changed cells {total} in {len(d['changed'])} column(s)")
+            for h, v in sorted(d["changed"].items(), key=lambda kv: -kv[1]["rows"])[:8]:
+                print(f"    {h}: {v['rows']} cell(s), e.g. " + "; ".join(f"row {r} {a!r} -> {b!r}" for r, a, b in v["examples"]))
         return
 
     if action == "find" or not wanted:
