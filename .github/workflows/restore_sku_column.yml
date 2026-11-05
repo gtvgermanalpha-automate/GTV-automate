@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "list | find | plan | apply  (only apply writes the sheet)"
+        description: "list | find | plan | diff | apply  (only apply writes the sheet)"
         required: true
         default: "list"
       tab:
@@ -17,6 +17,10 @@ on:
         default: "2026-11-04T06:00:00Z"
       revision:
         description: "Drive revision id for plan/apply (empty = the last revision that still had a SKU header)"
+        required: false
+        default: ""
+      revision2:
+        description: "diff only: the second revision to compare the first against (all tabs, by header name)"
         required: false
         default: ""
       confirm:
@@ -49,5 +53,6 @@ jobs:
           TAB: ${{ inputs.tab }}
           SINCE: ${{ inputs.since }}
           REVISION: ${{ inputs.revision }}
+          REVISION2: ${{ inputs.revision2 }}
           CONFIRM: ${{ inputs.confirm }}
         run: python restore_sku_column.py
