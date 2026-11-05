@@ -1,0 +1,53 @@
+name: Restore SKU Column (one-off, from a Drive revision)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "list | find | plan | apply  (only apply writes the sheet)"
+        required: true
+        default: "list"
+      tab:
+        description: "Worksheet"
+        required: false
+        default: "Amazon"
+      since:
+        description: "Ignore revisions older than this (ISO time)"
+        required: false
+        default: "2026-11-04T06:00:00Z"
+      revision:
+        description: "Drive revision id for plan/apply (empty = the last revision that still had a SKU header)"
+        required: false
+        default: ""
+      confirm:
+        description: "apply only: type restore"
+        required: false
+        default: ""
+
+# Only the writing action queues behind the syncs (same lock group as every sheet writer); the read-only actions run at once.
+concurrency:
+  group: ${{ inputs.action == 'apply' && 'onbuy-api' || format('restore-sku-{0}', github.run_id) }}
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install openpyxl
+      - name: Restore the SKU column
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          ACTION: ${{ inputs.action }}
+          TAB: ${{ inputs.tab }}
+          SINCE: ${{ inputs.since }}
+          REVISION: ${{ inputs.revision }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: python restore_sku_column.py
