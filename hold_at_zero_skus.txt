@@ -4,12 +4,10 @@
 # 2026-10-12 borderline flags (same type, other model/spec/brand): the user ordered them FROZEN at stock 0, not deleted - release only after the page/row is fixed
 # 2026-10-15 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-10-16 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
-856689732127  # Sheet1 row 1004: row = 9000000mAh Power Bank Magnetic Battery Pack W | page = POWER BANK FOR ELECTRIC HEATED VEST JACKET BO
 # 2026-10-18 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 251592989154  # Amazon row 2456: row = EZVIZWiFiIndoorCamera,HD,PetBabyMonitor,Night | page = EZVIZ WiFi Indoor Camera, HD, Pet Baby Monito
 # 2026-10-20 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-10-22 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
-Ama-B0BRHJTQZ6-5  # Amazon row 772: row = zoerbufan Toe Separators, 3 Pairs, Soft Silic | page = Toe Separators [3 Pair], Toe Stretcher for Ov
 # 2026-10-24 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 449181863934  # Sheet1 row 3289: row = Android 14.0 TV Box Media Player 8GB RAM 128G | page = Fire TV Stick 8K UHD Android 13.0 Media Playe
 # 2026-10-24 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
@@ -18,8 +16,6 @@ Ama-B0BRHJTQZ6-5  # Amazon row 772: row = zoerbufan Toe Separators, 3 Pairs, Sof
 # 2026-11-03 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-04 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-06 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
-289835506332  # Amazon row 1122: row = Aura Carver Mat 10" Digital Photo Frame | Wi- | page = Aura Carver WiFi Digital Picture Frame | The
-693093985769  # Amazon row 5213: row = MORENTO HY4866-WF Smart WiFi HEPA Air Purifie | page = MORENTO Smart Air Purifier for home Large Roo
 820805842687  # Amazon row 5324: row = 6ft (1.83M) Artificial Christmas Tree, Realis | page = iSunirm 47 inch Gaming Desk with Power Outlet
 820826701727  # Amazon row 5325: row = 7ft (2.13M) Artificial Christmas Tree, Realis | page = VASAGLE Computer Desk, Modern basic, 100 x 50
 820839994598  # Amazon row 5326: row = 8ft (2.44M) Artificial Christmas Tree, Realis | page = VASAGLE Computer Desk, Modern basic, 100 x 50
