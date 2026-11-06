@@ -1,0 +1,39 @@
+name: Revision SKU Diff (read-only, from Drive revisions)
+
+# Compares one tab in two Drive revisions BY SKU: which SKUs left, which arrived, which rows were blanked, how far the rest moved.
+# Reads Drive + the revision exports only - no OnBuy, no writes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "First Drive revision id (from restore_sku_column action=list)"
+        required: true
+      revision2:
+        description: "Second Drive revision id"
+        required: true
+      tab:
+        description: "Worksheet"
+        required: false
+        default: "Amazon"
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install openpyxl
+      - name: Diff by SKU
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          REVISION: ${{ inputs.revision }}
+          REVISION2: ${{ inputs.revision2 }}
+          TAB: ${{ inputs.tab }}
+        run: python revision_sku_diff.py
