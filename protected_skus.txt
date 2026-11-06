@@ -30,3 +30,69 @@ Ama-B0BRHJTQZ6-5  # Amazon row 772: row = zoerbufan Toe Separators, 3 Pairs, Sof
 # 2026-10-31 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-03 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 # 2026-11-04 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+# 2026-11-06 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+289835506332  # Amazon row 1122: row = Aura Carver Mat 10" Digital Photo Frame | Wi- | page = Aura Carver WiFi Digital Picture Frame | The
+693093985769  # Amazon row 5213: row = MORENTO HY4866-WF Smart WiFi HEPA Air Purifie | page = MORENTO Smart Air Purifier for home Large Roo
+820805842687  # Amazon row 5324: row = 6ft (1.83M) Artificial Christmas Tree, Realis | page = iSunirm 47 inch Gaming Desk with Power Outlet
+820826701727  # Amazon row 5325: row = 7ft (2.13M) Artificial Christmas Tree, Realis | page = VASAGLE Computer Desk, Modern basic, 100 x 50
+820839994598  # Amazon row 5326: row = 8ft (2.44M) Artificial Christmas Tree, Realis | page = VASAGLE Computer Desk, Modern basic, 100 x 50
+820854970027  # Amazon row 5327: row = 10ft (3.05M) Artificial Christmas Tree, Reali | page = VASAGLE Computer Desk, Modern basic, 100 x 50
+820887886555  # Amazon row 5328: row = 4ft Premium Christmas Tree 320 Branch Tips Gr | page = VASAGLE Computer Desk, Modern basic, 120 x 60
+820906546828  # Amazon row 5329: row = 4ft Snow Flocked Artificial Christmas Tree wi | page = Cubiker Electric Standing Desk 100 x 60 cm, H
+820958755131  # Amazon row 5330: row = 4ft Pre-Lit Snow Flocked Christmas Tree with | page = Cubiker Electric Standing Desk 120 x 60 cm, H
+820973551602  # Amazon row 5331: row = 4ft White Artificial Christmas Tree – Premium | page = Cubiker Electric Standing Desk 120 x 60 cm, H
+820988955686  # Amazon row 5332: row = 5ft Premium Christmas Tree 580 Branch Tips Gr | page = Cubiker Electric Standing Desk 160 x 80 cm, H
+821002441932  # Amazon row 5333: row = 5FT Pre-Lit Artificial Christmas Tree with 18 | page = FirFurd Black Desk with Drawers Computer Desk
+821033641875  # Amazon row 5334: row = 5ft Snow Flocked Artificial Christmas Tree wi | page = BEXEVUE Small Desk with Drawers, 100cm Comupu
+821039801815  # Amazon row 5335: row = 6ft Premium Christmas Tree 1150 Branch Tips G | page = BEXEVUE L Shaped Gaming Desk, 100x70 cm Compu
+821046568497  # Amazon row 5336: row = Busybee 7ft Artificial Christmas Tree with 40 | page = BEXEVUE L Shaped Corner Desk - 100x70 cm Stud
+821066423660  # Amazon row 5337: row = 3ft/90cm Pre-Lit Artificial Christmas Tree, B | page = Coleshome Computer Desk with Printer Stand &
+821082264292  # Amazon row 5338: row = Pre-lit Christmas Tree 120cm/4ft,300 Branches | page = Coleshome Computer Desk with Printer Stand &
+821094740449  # Amazon row 5339: row = 2ft Christmas Tree Fibre Optic With LED Light | page = Coleshome Computer Desk with Printer Stand &
+821111475590  # Amazon row 5340: row = 3ft Christmas Tree Fibre Optic With LED Light | page = CAIYUN L Shaped Computer Desk with 2 Drawers,
+821137482169  # Amazon row 5341: row = 4ft Christmas Tree Fibre Optic With LED Light | page = CAIYUN L Shaped Computer Desk with 2 Drawers,
+821138586545  # Amazon row 5342: row = 5ft Christmas Tree Fibre Optic With LED Light | page = CAIYUN L Shaped Computer Desk with 2 Drawers,
+821179378383  # Amazon row 5343: row = 6ft Christmas Tree Fibre Optic With LED Light | page = Xyphren 80cm Desk, Small Computer Desk for Ho
+821221836717  # Amazon row 5344: row = Classic Artificial Realistic Natural Branches | page = Xyphren 80cm Desk, Small Computer Desk for Ho
+821282479410  # Amazon row 5345: row = Classic Artificial Realistic Natural Branches | page = Xyphren 100cm Desk, Small Computer Desk for H
+821291648319  # Amazon row 5346: row = Classic Artificial Realistic Natural Branches | page = Xyphren 100cm Desk, Small Computer Desk for H
+821308669535  # Amazon row 5347: row = Classic Artificial Realistic Natural Branches | page = VASAGLE Space-Saving Folding Computer Desk, 8
+821313295040  # Amazon row 5348: row = Gr8 Home 7FT Christmas Tree With Stand Artifi | page = VASAGLE Space-Saving Folding Computer Desk, 8
+821331182971  # Amazon row 5349: row = Alupssuc 5ft Pre Lit Christmas Tree with 13 L | page = VASAGLE Space-Saving Folding Computer Desk, 1
+821358899852  # Amazon row 5350: row = Alupssuc 6ft Pre Lit Christmas Tree with 13 L | page = ODK Computer Desk with Drawers, 120cm Office
+821363423547  # Amazon row 5351: row = Alupssuc 7ft Pre Lit Christmas Tree with 13 L | page = BONTEC 80cm Standing Desk Converter, Dual-Tie
+821381838002  # Amazon row 5352: row = Alupssuc 7.5ft Prelit Christmas Tree with 13 | page = BONTEC 80cm Standing Desk Converter, Dual-Tie
+821385645415  # Amazon row 5353: row = VEYLIN 6FT Green Christmas Tree 800 Tips Arti | page = Tribesigns 180 cm Computer Desk, Desk with He
+821408132359  # Amazon row 5354: row = VEYLIN 6ft Frosted Christmas Tree Artificial | page = Coleshome L Shaped Gaming Desk with Led Light
+821421414623  # Amazon row 5355: row = VEYLIN 6ft White Christmas Tree 700 Tips Arti | page = Coleshome L Shaped Gaming Desk with Led Light
+821445851510  # Amazon row 5357: row = VEYLIN 6ft Christmas Tree Snow Flocked Artifi | page = Coleshome L Shaped Gaming Desk with Drawers &
+821649742782  # Amazon row 5361: row = Alupssuc 4ft PE Pre-Lit Artificial Christmas | page = CubiCubi L Shaped Gaming Desk, 100x70 cm Comp
+821672257130  # Amazon row 5362: row = Alupssuc 5ft PE Pre-Lit Artificial Christmas | page = CubiCubi L Shaped Gaming Desk, 120x70 cm Comp
+821680653832  # Amazon row 5363: row = 7ft Christmas Tree Fibre Optic With LED Light | page = HUANUO Standing Desk 80x48cm mit 4 Memory hei
+821697374805  # Amazon row 5364: row = Leaf LEAF - 7088 Design UK 90cm Artificial Fi | page = HUANUO Standing Desk 80x48cm mit 4 Memory hei
+821704238755  # Amazon row 5365: row = Leaf Artificial Ficus Tree/Plant, 60cm | page = HUANUO Standing Desk 80x48cm mit 4 Memory hei
+821719937469  # Amazon row 5366: row = Leaf Artificial Ficus Tree/Plant, Photinia Re | page = HUANUO Standing Desk 80x48cm mit 4 Memory hei
+821732737398  # Amazon row 5367: row = Leaf Artificial Ficus Tree/Plant, Evergreen B | page = HUANUO Standing Desk 80x48cm mit 4 Memory hei
+821753642138  # Amazon row 5368: row = Leaf Artificial Tree/Plant, Dark Green Ficus, | page = BONTEC Dual Monitor Stand Riser, Stepless Adj
+821760103301  # Amazon row 5369: row = 4Ft Snowy Flocked Artificial Christmas Tree, | page = BONTEC Dual Monitor Stand Riser, Stepless Adj
+821778009053  # Amazon row 5370: row = 5Ft Snowy Flocked Artificial Christmas Tree, | page = BONTEC Dual Monitor Riser, Stepless Adjustabl
+821791331834  # Amazon row 5371: row = 6Ft Snowy Flocked Artificial Christmas Tree, | page = BONTEC Dual Monitor Stand Riser, Stepless Adj
+821807679363  # Amazon row 5372: row = 7Ft Snowy Flocked Artificial Christmas Tree, | page = BONTEC Dual Monitor Stand Riser, Stepless Adj
+821835085983  # Amazon row 5373: row = VeryMerry 5FT 'Snowhill' Pre Lit Christmas Tr | page = BONTEC Dual Monitor Arm Desk Mount for 13–27
+821844269497  # Amazon row 5375: row = VeryMerry 7FT 'Snowhill' Pre Lit Christmas Tr | page = LVB Gaming Desk Computer Office Table Large D
+821855728426  # Amazon row 5376: row = Artificial Christmas Tree with White Tips & M | page = LVB Gaming Desk Computer Office Table Large D
+821863439369  # Amazon row 5377: row = Realistic Artificial Christmas Tree with Whit | page = LVB Gaming Desk Computer Office Table Large D
+821911463056  # Amazon row 5378: row = Realistic Artificial Christmas Tree with Whit | page = LVB Gaming Desk Computer Office Table Large D
+821934050240  # Amazon row 5379: row = Festive Fix Artificial Christmas Tree 4FT – 3 | page = Coleshome Corner Computer Desk with Drawers a
+822004814137  # Amazon row 5380: row = Festive Fix Artificial Christmas Tree 5FT – 6 | page = ODK Gaming Desk with LED Lights & Power Outle
+822026090854  # Amazon row 5381: row = Festive Fix Artificial Christmas Tree 7FT – 9 | page = ODK Gaming Desk with LED Lights & Power Outle
+822032016176  # Amazon row 5382: row = SHareconn 6FT Pre-Lit Snow Flocked PE Cedar A | page = ODK Gaming Desk with LED Lights & Power Outle
+822034629398  # Amazon row 5383: row = SHareconn 7FT Pre-Lit Snow Flocked PE Cedar A | page = ODK Gaming Desk with LED Lights & Power Outle
+822056687345  # Amazon row 5384: row = SHareconn 7.5FT Pre-Lit Snow Flocked PE Cedar | page = VASAGLE Electric Standing Desk with Built-In
+822061741285  # Amazon row 5385: row = Busybee 6ft Artificial Christmas Tree with 30 | page = Bestier 181CM L-Shaped Gaming Desk with RGB L
+822124105337  # Amazon row 5386: row = Christow 7ft Pre-Lit Artificial Christmas Tre | page = Furinno Efficient Home Laptop Notebook Comput
+822124665589  # Amazon row 5387: row = Christow 6ft Pre-Lit Artificial Christmas Tre | page = Furinno EFFICIENT 3 Open Side Shelves Gaming
+822155271407  # Amazon row 5388: row = Christow 5ft Snowy Artificial Christmas Tree, | page = Xyphren Corner Computer Desk with Drawers, 12
+822193957967  # Amazon row 5389: row = Christow 7ft Snowy Artificial Christmas Tree, | page = Coleshome Small Desk 100 x 40 cm, Office Desk
+822200262916  # Amazon row 5390: row = Outopee 4ft Fibre Optic Christmas Tree Indoor | page = Coleshome Small Desk 100 x 40 cm, Office Desk
+822254338704  # Amazon row 5391: row = SHOPNEW 7FT/2.1m PreLit Flocked Slim Pencil C | page = JUMMICO Electric Desk Standing Desk Height Ad
