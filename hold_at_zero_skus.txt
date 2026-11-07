@@ -79,3 +79,7 @@
 822193957967  # Amazon row 5389: row = Christow 7ft Snowy Artificial Christmas Tree, | page = Coleshome Small Desk 100 x 40 cm, Office Desk
 822200262916  # Amazon row 5390: row = Outopee 4ft Fibre Optic Christmas Tree Indoor | page = Coleshome Small Desk 100 x 40 cm, Office Desk
 822254338704  # Amazon row 5391: row = SHOPNEW 7FT/2.1m PreLit Flocked Slim Pencil C | page = JUMMICO Electric Desk Standing Desk Height Ad
+# 2026-11-07 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+0225790507236  # Sheet1 row 955: row = Rabbit Hutch Cover Bunny Guinea Pig Cage Prot | page = Rabbit Hutch Cover Brown 90x124x65cm High-Den
+614691053117  # Sheet1 row 3539: row = Portable 10.1'' Laptop Computer Quad Core And | page = 10'' Laptop Windows 11 Notebook 8GB+128GB Int
+# 2026-11-07 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
