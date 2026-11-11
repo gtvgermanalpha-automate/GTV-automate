@@ -96,3 +96,5 @@ Ebay-157617590047-5
 0225790507236  # Sheet1 row 955: row = Rabbit Hutch Cover Bunny Guinea Pig Cage Prot | page = Rabbit Hutch Cover Brown 90x124x65cm High-Den
 614691053117  # Sheet1 row 3539: row = Portable 10.1'' Laptop Computer Quad Core And | page = 10'' Laptop Windows 11 Notebook 8GB+128GB Int
 # 2026-11-07 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+# 2026-11-11 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+270927316144  # Sheet1 row 1122: row = Flea Trap Electric Plug In Lamp Twin Pack 12 | page = Flea Trap x2 Electric Lamp Killer Bulbs Light
