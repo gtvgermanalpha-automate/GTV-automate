@@ -100,3 +100,5 @@ Ebay-157617590047-5
 270927316144  # Sheet1 row 1122: row = Flea Trap Electric Plug In Lamp Twin Pack 12 | page = Flea Trap x2 Electric Lamp Killer Bulbs Light
 # 2026-11-13 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 176863971563  # Amazon row 1809: row = TCL Q65HK 5.1 ch soundbar for TV,580 Watts, H | page = TCL Q65HK 5.1 soundbar with Dolby Atmos & Ray
+# 2026-11-14 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+855193975099  # Amazon row 5521: row = cinnkeyi RGB Computer Speakers for Desktop, L | page = PC Speaker PC/Line-In/Bluetooth 3 Modes Compu
