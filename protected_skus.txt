@@ -104,3 +104,5 @@ Ebay-157617590047-5
 855193975099  # Amazon row 5521: row = cinnkeyi RGB Computer Speakers for Desktop, L | page = PC Speaker PC/Line-In/Bluetooth 3 Modes Compu
 # 2026-11-17 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 356828776895  # Amazon row 217: row = AstroAI 6 L Mini Fridge 2.0, 8-Can Cooler and | page = AstroAI Mini Fridge 6 Litre / 8 Can for Bedro
+# 2026-11-19 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
+725271093659  # Sheet1 row 2259: row = 2X BULK BAGS TON BAGS BUILDERS GARDEN WASTE J | page = 2x Extra Large Garden Waste Bags 500L Refuse
