@@ -95,3 +95,4 @@
 725271093659  # Sheet1 row 2259: row = 2X BULK BAGS TON BAGS BUILDERS GARDEN WASTE J | page = 2x Extra Large Garden Waste Bags 500L Refuse
 # 2026-11-20 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
 636576479720  # Amazon row 5876: row = FLASHFORGE AD5M 3D Printer Fully Auto Calibra | page = Flashforge 3D Printer Adventurer 5M Core XY S
+# 2026-11-21 the nightly found these listings showing ANOTHER product - zeroed and frozen automatically; release only after the page or the row is fixed
