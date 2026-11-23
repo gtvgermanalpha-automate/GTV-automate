@@ -38,6 +38,7 @@ the automation set under a SUPERSEDED schedule follows the formula down
 
 import json
 import os
+from datetime import date, datetime, timezone
 
 # What OnBuy actually deducts runs ABOVE the tier's nominal rate: it charges
 # 20% VAT on its own commission and takes both out of the sale. Read off the
@@ -162,6 +163,9 @@ _SUPERSEDED_PROFIT_BANDS = (
 # Every schedule the setting replaces must be listed under "superseded" (the dashboard does that), so prices and Profit % cells the
 # automation wrote under it stay its own and follow the formula; the code's own schedule is added automatically. Unset, empty or
 # malformed = the constants, never a broken run.
+# "until": "YYYY-MM-DD" (optional, 2026-11-23, user: "15% profit on GTV all products till 30th nov"): the setting is in force through that
+# UTC day INCLUSIVE; from the next day on it reads as unset = the code constants again, with no revert step to remember. The prices the
+# temporary schedule wrote are then below the constants' formula, so max(existing, formula) raises them as each row is next visited.
 def _schedule_setting(raw=None):
     """Parse PROFIT_SCHEDULE (or `raw`) -> {"bands", "superseded", "overrides"} or None when unset / malformed."""
     raw = (os.getenv("PROFIT_SCHEDULE") if raw is None else raw) or ""
@@ -174,6 +178,13 @@ def _schedule_setting(raw=None):
         return None
     if not isinstance(data, dict):
         return None
+    until = data.get("until")
+    if until not in (None, ""):
+        try:
+            if datetime.now(timezone.utc).date() > date.fromisoformat(str(until).strip()):
+                return None
+        except ValueError:
+            return None
 
     def bands_of(items):
         out = []

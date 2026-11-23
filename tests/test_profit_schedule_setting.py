@@ -49,3 +49,29 @@ def test_parser_reads_overrides_and_rejects_bad_windows():
     # a superseded entry that does not parse is dropped, the rest kept
     partial = pricing._schedule_setting(json.dumps({"bands": [[5, 100], [None, 20]], "superseded": [[[5, 1]], [[5, 80], [None, 40]]]}))
     assert partial["superseded"] == (((5.0, 80.0), (None, 40.0)),)
+
+
+def test_until_date_is_inclusive_and_the_setting_ends_by_itself(monkeypatch):
+    # 2026-11-23 (user: "15% profit on GTV all products till 30th nov"): the setting holds through its UTC day, then reads as unset.
+    from datetime import datetime as real_datetime, timezone as tz
+
+    class FakeDatetime(real_datetime):
+        today = real_datetime(2026, 11, 30, 23, 59, tzinfo=tz.utc)
+
+        @classmethod
+        def now(cls, tzinfo=None):
+            return cls.today
+
+    monkeypatch.setattr(pricing, "datetime", FakeDatetime)
+    raw = json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": "2026-11-30"})
+    assert pricing._schedule_setting(raw)["bands"] == ((5.0, 15.0), (10.0, 15.0), (50.0, 15.0), (None, 15.0))   # last day: still on
+    FakeDatetime.today = real_datetime(2026, 12, 1, 0, 0, tzinfo=tz.utc)
+    assert pricing._schedule_setting(raw) is None                                                              # next day: code constants
+    code_bands = pricing.PROFIT_BANDS
+    install(raw)
+    assert pricing.PROFIT_BANDS == code_bands
+    # no / empty until = permanent; a malformed date never breaks a run (falls back to the constants)
+    assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]]})) is not None
+    assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": ""})) is not None
+    assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": "30th nov"})) is None
+    install(None)
