@@ -119,6 +119,12 @@ def profit_percent(total_cost):
 SELL_PRICE_OVERRIDES = (
     (10.0, 20.0, 15),   # (base price low, high - both inclusive, profit %)
 )
+# 2026-11-23 (temporary schedule, see "until" below): the bands the selling-price window is anchored on. None = the active bands (the
+# normal case). A temporary schedule that raises every band sets it to the CODE bands, so the window keeps covering exactly the rows it
+# covers today instead of sliding to other rows when the bands move.
+_ANCHOR_BANDS = None
+# Window profits an ended temporary schedule wrote: prices set under them are still the automation's own and follow the formula down.
+_SUPERSEDED_OVERRIDE_PCTS = ()
 
 
 def profit_percent_for(total_cost, rule=None):
@@ -128,10 +134,11 @@ def profit_percent_for(total_cost, rule=None):
     base = profit_percent(total_cost)
     if total_cost <= 0 or not SELL_PRICE_OVERRIDES:
         return base
+    anchor = _band_lookup(_ANCHOR_BANDS, total_cost) if _ANCHOR_BANDS else base
     if rule is not None:
-        base_price = price_for_profit(total_cost, base, rule=rule, legacy=True)
+        base_price = price_for_profit(total_cost, anchor, rule=rule, legacy=True)
     else:
-        base_price = price_for_profit(total_cost, base, legacy=True)
+        base_price = price_for_profit(total_cost, anchor, legacy=True)
     for lo, hi, pct in SELL_PRICE_OVERRIDES:
         if lo <= base_price <= hi:
             return pct
@@ -166,6 +173,9 @@ _SUPERSEDED_PROFIT_BANDS = (
 # "until": "YYYY-MM-DD" (optional, 2026-11-23, user: "15% profit on GTV all products till 30th nov"): the setting is in force through that
 # UTC day INCLUSIVE; from the next day on it reads as unset = the code constants again, with no revert step to remember. The prices the
 # temporary schedule wrote are then below the constants' formula, so max(existing, formula) raises them as each row is next visited.
+# An ENDED setting is still read for one thing: its bands, its "superseded" list and its window profits are kept as superseded, so
+# prices it wrote ABOVE the constants' formula (a temporary raise) stay the automation's own and follow the formula back down.
+# "anchor_on_code_bands": true (optional): the selling-price window is decided on the code bands, not on this setting's bands.
 def _schedule_setting(raw=None):
     """Parse PROFIT_SCHEDULE (or `raw`) -> {"bands", "superseded", "overrides"} or None when unset / malformed."""
     raw = (os.getenv("PROFIT_SCHEDULE") if raw is None else raw) or ""
@@ -179,10 +189,10 @@ def _schedule_setting(raw=None):
     if not isinstance(data, dict):
         return None
     until = data.get("until")
+    expired = False
     if until not in (None, ""):
         try:
-            if datetime.now(timezone.utc).date() > date.fromisoformat(str(until).strip()):
-                return None
+            expired = datetime.now(timezone.utc).date() > date.fromisoformat(str(until).strip())
         except ValueError:
             return None
 
@@ -228,7 +238,8 @@ def _schedule_setting(raw=None):
                 return None
             overrides.append((lo, hi, pct))
         overrides = tuple(overrides)
-    return {"bands": bands, "superseded": tuple(superseded), "overrides": overrides}
+    return {"bands": bands, "superseded": tuple(superseded), "overrides": overrides, "expired": expired,
+            "anchor_code": bool(data.get("anchor_on_code_bands"))}
 
 
 _CODE_PROFIT_BANDS = PROFIT_BANDS
@@ -238,12 +249,20 @@ _CODE_SELL_PRICE_OVERRIDES = globals().get("SELL_PRICE_OVERRIDES")
 
 def _apply_schedule_setting(setting):
     """Install a parsed setting (None = back to the code constants); returns what is installed."""
-    global PROFIT_BANDS, _SUPERSEDED_PROFIT_BANDS, SELL_PRICE_OVERRIDES
+    global PROFIT_BANDS, _SUPERSEDED_PROFIT_BANDS, SELL_PRICE_OVERRIDES, _ANCHOR_BANDS, _SUPERSEDED_OVERRIDE_PCTS
     PROFIT_BANDS = _CODE_PROFIT_BANDS
     _SUPERSEDED_PROFIT_BANDS = _CODE_SUPERSEDED_PROFIT_BANDS
+    _ANCHOR_BANDS = None
+    _SUPERSEDED_OVERRIDE_PCTS = ()
     if _CODE_SELL_PRICE_OVERRIDES is not None:
         SELL_PRICE_OVERRIDES = _CODE_SELL_PRICE_OVERRIDES
     if not setting:
+        return None
+    if setting.get("expired"):
+        ended = tuple(setting["superseded"]) + (setting["bands"],)
+        _SUPERSEDED_PROFIT_BANDS = _CODE_SUPERSEDED_PROFIT_BANDS + tuple(
+            b for b in ended if b not in _CODE_SUPERSEDED_PROFIT_BANDS and b != _CODE_PROFIT_BANDS)
+        _SUPERSEDED_OVERRIDE_PCTS = tuple(sorted({pct for _lo, _hi, pct in (setting["overrides"] or ())}))
         return None
     PROFIT_BANDS = setting["bands"]
     extra = tuple(b for b in setting["superseded"] if b not in _CODE_SUPERSEDED_PROFIT_BANDS)
@@ -252,6 +271,8 @@ def _apply_schedule_setting(setting):
     _SUPERSEDED_PROFIT_BANDS = _CODE_SUPERSEDED_PROFIT_BANDS + extra
     if setting["overrides"] is not None and _CODE_SELL_PRICE_OVERRIDES is not None:
         SELL_PRICE_OVERRIDES = setting["overrides"]
+    if setting.get("anchor_code"):
+        _ANCHOR_BANDS = _CODE_PROFIT_BANDS
     return setting
 
 
@@ -274,6 +295,9 @@ def legacy_profit_percents(total_cost, rule=None):
         out.append(base)
     for bands in _SUPERSEDED_PROFIT_BANDS:
         profit = _band_lookup(bands, total_cost)
+        if profit != current and profit not in out:
+            out.append(profit)
+    for profit in _SUPERSEDED_OVERRIDE_PCTS:
         if profit != current and profit not in out:
             out.append(profit)
     return out

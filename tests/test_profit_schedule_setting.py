@@ -66,12 +66,65 @@ def test_until_date_is_inclusive_and_the_setting_ends_by_itself(monkeypatch):
     raw = json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": "2026-11-30"})
     assert pricing._schedule_setting(raw)["bands"] == ((5.0, 15.0), (10.0, 15.0), (50.0, 15.0), (None, 15.0))   # last day: still on
     FakeDatetime.today = real_datetime(2026, 12, 1, 0, 0, tzinfo=tz.utc)
-    assert pricing._schedule_setting(raw) is None                                                              # next day: code constants
+    assert pricing._schedule_setting(raw)["expired"] is True                                                    # next day: ended
     code_bands = pricing.PROFIT_BANDS
-    install(raw)
+    assert install(raw) is None                                                                                # ... = the code constants
     assert pricing.PROFIT_BANDS == code_bands
     # no / empty until = permanent; a malformed date never breaks a run (falls back to the constants)
     assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]]})) is not None
     assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": ""})) is not None
     assert pricing._schedule_setting(json.dumps({"bands": [[5, 15], [10, 15], [50, 15], [None, 15]], "until": "30th nov"})) is None
     install(None)
+
+
+def _temp_raise_setting():
+    return json.dumps({"bands": [[5, 115], [10, 95], [50, 55], [None, 35]], "sell_price_overrides": [[10, 20, 30]],
+                       "anchor_on_code_bands": True, "superseded": [[[5, 15], [10, 15], [50, 15], [None, 15]]],
+                       "until": "2026-11-30"})
+
+
+def test_plus_15_schedule_keeps_the_window_on_the_same_rows_as_the_code_schedule():
+    # 2026-11-23: every band +15 points (100->115, 80->95, 40->55, 20->35) and the GBP 10-20 window 15 -> 30. The window is anchored on
+    # the CODE bands, so exactly the rows that sit in the window today are in it - none slide in or out when the bands move.
+    costs = [round(0.5 * n, 2) for n in range(1, 400)]          # GBP 0.50 .. 199.50
+    try:
+        install(None)
+        code_profit = {c: pricing.profit_percent_for(c) for c in costs}
+        install(_temp_raise_setting())
+        in_window_now = {c for c in costs if code_profit[c] == 15 and pricing.profit_percent(c) != 15}
+        assert in_window_now, "the code window should cover some costs"
+        for c in costs:
+            expected = {100: 115, 80: 95, 40: 55, 20: 35}.get(code_profit[c], 30 if c in in_window_now else code_profit[c])
+            assert pricing.profit_percent_for(c) == expected, (c, code_profit[c], pricing.profit_percent_for(c))
+    finally:
+        install(None)
+
+
+def test_an_ended_plus_15_schedule_still_counts_as_the_automations_own(monkeypatch):
+    # After 30 Nov the prices written at +15 are ABOVE the code formula; they must be recognised (superseded) so the sync lowers them again.
+    from datetime import datetime as real_datetime, timezone as tz
+
+    class FakeDatetime(real_datetime):
+        @classmethod
+        def now(cls, tzinfo=None):
+            return real_datetime(2026, 12, 2, 1, 0, tzinfo=tz.utc)
+
+    monkeypatch.setattr(pricing, "datetime", FakeDatetime)
+    code_bands = pricing.PROFIT_BANDS
+    try:
+        assert install(_temp_raise_setting()) is None
+        assert pricing.PROFIT_BANDS == code_bands
+        assert ((5.0, 115.0), (10.0, 95.0), (50.0, 55.0), (None, 35.0)) in pricing._SUPERSEDED_PROFIT_BANDS
+        assert 30.0 in pricing._SUPERSEDED_OVERRIDE_PCTS
+        # cost 3 (code 100, temp 115), 7 (80 / 95), 30 (40 / 55), 80 (20 / 35): the temp profit is a legacy value for that cost
+        for cost, temp in ((3.0, 115.0), (7.0, 95.0), (30.0, 55.0), (80.0, 35.0)):
+            assert temp in pricing.legacy_profit_percents(cost), cost
+        # a window-row price written at 30% is recognised too (cost 12: code window 15%)
+        window_cost = next(c for c in (x / 2 for x in range(2, 200)) if pricing.profit_percent_for(c) == 15)
+        assert 30.0 in pricing.legacy_profit_percents(window_cost), window_cost
+        import generate_xml
+        for cost, temp in ((3.0, 115.0), (30.0, 55.0), (80.0, 35.0)):
+            price = pricing.price_for_profit(cost, temp, legacy=False)
+            assert generate_xml._formula_priced(price, cost, 0.0, None), (cost, temp)
+    finally:
+        install(None)
