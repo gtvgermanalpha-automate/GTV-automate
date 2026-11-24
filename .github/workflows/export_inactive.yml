@@ -1,0 +1,30 @@
+name: Export Inactive Rows (read-only)
+
+# Lists every INACTIVE product row (Status != ACTIVE) on the product tabs and uploads the
+# CSV + SKU list as an artifact. Reads the Google Sheet only - no OnBuy, no Keepa, no
+# writes - so it stays outside the onbuy-api group and is safe alongside any run.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: List the inactive rows
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python export_inactive.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inactive
+          path: |
+            inactive_rows.csv
+            inactive_skus.txt
