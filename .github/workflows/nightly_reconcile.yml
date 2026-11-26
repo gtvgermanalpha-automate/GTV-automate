@@ -195,8 +195,9 @@ jobs:
           else
             echo "no new holds to commit"
           fi
+      # 2026-11-26: SALE_GUARD_OFF=1 parks the guard (manual sale wanted).
       - name: Sale price guard (end any sale price - the selling price is the direct price)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && vars.SALE_GUARD_OFF != '1' }}
         env:
           LISTINGS_CACHE: "listings_cache.json"
           DRY_RUN: "0"

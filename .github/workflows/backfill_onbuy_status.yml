@@ -229,8 +229,10 @@ jobs:
           else
             echo "no new holds to commit"
           fi
+      # 2026-11-26 (user: his MANUAL sale kept being auto-ended - it was this guard): repo variable
+      # SALE_GUARD_OFF=1 parks the guard while a manual sale is wanted; unset/0 = the 2026-10-10 rule again.
       - name: Sale price guard (end any sale price - the selling price is the direct price)
-        if: ${{ !cancelled() && steps.gate.outputs.go == '1' }}
+        if: ${{ !cancelled() && steps.gate.outputs.go == '1' && vars.SALE_GUARD_OFF != '1' }}
         env:
           LISTINGS_CACHE: "listings_cache.json"
           DRY_RUN: "0"
