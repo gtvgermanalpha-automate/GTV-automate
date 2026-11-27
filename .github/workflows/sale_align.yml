@@ -1,0 +1,48 @@
+name: Sale Re-Align (keep the user's sale percent)
+
+# Re-sets sale_price to PERCENT off the CURRENT price on every listing that already carries a sale
+# (the user's portal sale is a fixed price; our price pushes make the shown % drift). Touches no
+# listing without a sale, never changes price or stock. See sale_align.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "yes = list what would change, send nothing"
+        required: false
+        default: "yes"
+      percent:
+        description: "The sale percent the listings should show"
+        required: false
+        default: "5"
+      tolerance:
+        description: "GBP drift to leave alone (default 0.01)"
+        required: false
+        default: "0.01"
+
+concurrency:
+  group: onbuy-api
+  cancel-in-progress: false
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Align
+        env:
+          DRY_RUN: ${{ inputs.dry_run == 'no' && '0' || '1' }}
+          PERCENT: ${{ inputs.percent }}
+          TOL: ${{ inputs.tolerance }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python -u sale_align.py
