@@ -270,3 +270,20 @@ jobs:
           ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
           ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
         run: python -u store_sale.py
+
+      # User 2026-11-27: a price rise must not deepen the shown sale percent. While his PORTAL sale runs (repo variable
+      # SALE_ALIGN_PERCENT = the percent he applied), every listing already on a sale is re-set to exactly that percent off its
+      # current price, right after the price catch-up above. Fresh sweep on purpose: the shared cache holds pre-fix prices.
+      # No variable = the step does nothing. Do not set it while a one-click store sale (store_sale.json) is on, and keep the
+      # sale guard parked (SALE_GUARD_OFF=1) while it is set. See sale_align.py.
+      - name: Sale re-align (keep the sale percent exact after price pushes)
+        if: ${{ !cancelled() && vars.SALE_ALIGN_PERCENT != '' }}
+        continue-on-error: true
+        env:
+          DRY_RUN: "0"
+          PERCENT: ${{ vars.SALE_ALIGN_PERCENT }}
+          ONBUY_CONSUMER_KEY: ${{ secrets.ONBUY_CONSUMER_KEY }}
+          ONBUY_SECRET_KEY: ${{ secrets.ONBUY_SECRET_KEY }}
+          ONBUY_SELLER_ID: ${{ secrets.ONBUY_SELLER_ID }}
+          ONBUY_SITE_ID: ${{ secrets.ONBUY_SITE_ID }}
+        run: python -u sale_align.py
